@@ -34,7 +34,7 @@ char *readKernel(char *kernelFileName)
     return source_str;
 }
 
-void readRefPoints(char *fileName, float *refPoints_h, ClassAndDist *classAndDistArr_h, int noOfRefPoints, int noOfQueryPoints, int noOfAttributes){
+void readRefPoints(char *fileName, float *refPoints_h, int *clases_h, int noOfRefPoints, int noOfQueryPoints, int noOfAttributes){
 
     FILE *dataFile = fopen(fileName, "r");
 
@@ -59,7 +59,7 @@ void readRefPoints(char *fileName, float *refPoints_h, ClassAndDist *classAndDis
 
             for (int i = 0; i < noOfQueryPoints; i++)
             {
-                classAndDistArr_h[i* noOfRefPoints + index].cls = clsTemp;
+                clases_h[i* noOfRefPoints + index] = clsTemp;
             }
             
             // refPoints_h[index] = rowOfRefPoints;
