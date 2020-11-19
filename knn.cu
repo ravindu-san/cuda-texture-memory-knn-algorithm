@@ -96,6 +96,9 @@ int main()
     int n_refPoints = 16;
     int n_queryPoints = 2;
     int n_dimentions = 4;
+    int k = 4;
+    int n_clases = 2;
+    int clsOfQuerypts[n_queryPoints];
 
     float *refPoints_h, *refPoints_d;
     // ClassAndDist *classAndDistArr_h, *classAndDistArr_d;
@@ -139,6 +142,8 @@ int main()
 
     distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
 
+    // printf("after malloc\n");
+
     // char *refPointsFileName = "testData8192_4.csv";
     // char *queryPointsFileName = "queryPoints_4.csv";
      char *refPointsFileName = "testData16_4.csv";
@@ -147,10 +152,10 @@ int main()
     readRefPoints(refPointsFileName, refPoints_h, clases_h, n_refPoints, n_queryPoints, n_dimentions);
 
     // for (int i = 0; i < noOfRefPoints; i++)
-    // for (int i = 0; i < 5; i++)
-    // {
-    //     printf("%d  %f  %f  %f  %f  %d\n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3], classAndDistArr_h[i].cls);
-    // }
+    for (int i = 0; i < 5; i++)
+    {
+        printf("%d  %f  %f  %f  %f  %d\n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3], clases_h[i]);
+    }
 
     readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
 
@@ -209,6 +214,7 @@ int main()
     
     printf("after kernel");
     error = cudaMemcpy(distances_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(clases_h, clases_d, sizeof(int) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
 
 
     if (error != cudaSuccess)
@@ -223,7 +229,14 @@ int main()
 
         // printf("hello");
 
-        printf("%f  ", i,distances_h[n_refPoints + i]);
+        printf("%f  ", distances_h[n_refPoints + i]);
+
+    }
+    printf("\n\nclases after sort\n");
+    for(int i = 0; i<n_refPoints ; i++){
+
+        
+        printf("%d  ", clases_h[n_refPoints + i]);
 
     }
 
@@ -271,11 +284,40 @@ int main()
     }
 
     error = cudaMemcpy(distances_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(clases_h, clases_d, sizeof(int) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
     
     printf("\n\ndistances after sort\n");
     for(int i = 0; i<n_refPoints ; i++){
 
-        printf("%f  ", i,distances_h[n_refPoints + i]);
+        printf("%f  ", distances_h[n_refPoints + i]);
+
+    }
+
+    printf("\n\nclases after sort\n");
+    for(int i = 0; i<n_refPoints ; i++){
+
+        
+        printf("%d  ", clases_h[n_refPoints + i]);
+
+    }
+
+    // printf("\n\nclases after sort\n");
+    // for(int i = 0; i<n_refPoints ; i++){
+
+        
+    //     printf("%d  ", clases_h[i]);
+
+    // }
+
+    /////////////////////////////////////////////////////////////////////////////////
+
+    /////////////////////////////////////////////////////////////////////////////////
+
+    for(int i = 0; i< n_queryPoints; i++){
+
+        clsOfQuerypts[i] = findClassOfQueryPoint(clases_h, n_clases, n_refPoints, i, k);
+
+        // printf("\nquery point %d class : %d\n", i, clsOfQuerypts[i]);
 
     }
     /////////////////////////////////////////////////////////////////////////////////

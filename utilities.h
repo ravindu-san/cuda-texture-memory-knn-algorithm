@@ -102,3 +102,32 @@ void readQueryPoints(char *fileName, float *queryPoints_h, int noOfAttributes){
 
     fclose(dataFile);
 }
+
+
+int findClassOfQueryPoint(int *sorted_clases, int numberOfClasses, int noOfRefPoints, int queryPointNo, int k)
+{
+     int classOfQueryPoint = 0;
+    int frequenciesOfClasses[numberOfClasses];
+    int maxFrequency = 0;
+
+    for (size_t i = 0; i < numberOfClasses; i++)
+    {
+        frequenciesOfClasses[i] = 0;
+    }
+
+    for (size_t i = 0; i < k; i++)
+    {
+        frequenciesOfClasses[sorted_clases[queryPointNo * noOfRefPoints + i]]++;
+    }
+
+    for (size_t i = 0; i < numberOfClasses; i++)
+    {
+        if (frequenciesOfClasses[i] > maxFrequency)
+        {
+            maxFrequency = frequenciesOfClasses[i];
+            classOfQueryPoint = i;
+        }
+    }
+
+    return classOfQueryPoint;
+}
