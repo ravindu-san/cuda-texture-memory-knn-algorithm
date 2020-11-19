@@ -131,3 +131,20 @@ int findClassOfQueryPoint(int *sorted_clases, int numberOfClasses, int noOfRefPo
 
     return classOfQueryPoint;
 }
+
+float *transpose(float* rowMajor1D, int n_rows, int n_cols){
+
+    float *transposeArr = (float *)malloc(sizeof(float) * n_rows * n_cols);
+
+    for (size_t i = 0; i < n_rows; i++)
+    {
+        for (size_t j = 0; j < n_cols; j++)
+        {
+            transposeArr[n_rows * j + i] = rowMajor1D[n_cols * i + j]; 
+        }
+        
+    }
+
+    return transposeArr;
+    
+}
