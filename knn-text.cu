@@ -42,6 +42,30 @@ int main()
     int n_clases = 2;
     int clsOfQuerypts[n_queryPoints];
 
+    cudaError_t error;
+    cudaDeviceProp prop;
+    int device_count;
+    int warpSize = 32;
+
+    error = cudaGetDeviceCount(&device_count);
+
+    if (error != cudaSuccess)
+    {
+        printf("Error: %s\n", cudaGetErrorString(error));
+        exit(-1);
+    }
+
+    error = cudaGetDeviceProperties(&prop, 0);
+
+    if (error != cudaSuccess)
+    {
+        printf("Error: %s\n", cudaGetErrorString(error));
+        exit(-1);
+    }
+
+    warpSize = prop.warpSize;
+
+
     float *ref_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
     float *ref_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
     float *dist_h = (float *)malloc(sizeof(float) * n_refPoints * n_queryPoints);
@@ -49,7 +73,7 @@ int main()
     float *query_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
     float *query_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
 
-    char *refPointsFileName = "testData16_4.csv";
+    char *refPointsFileName = "testData32_4.csv";
     char *queryPointsFileName = "queryPoints1_4.csv";
 
     readRefPoints(refPointsFileName, ref_row_maj_h, cls_h, n_refPoints, n_queryPoints, n_dimentions);
@@ -67,7 +91,7 @@ int main()
     query_h = transpose(query_row_maj_h, n_queryPoints, n_dimentions); //make column major
     free(query_row_maj_h);
 
-    cudaError_t error;
+    
 
     // Allocate global memory
     float *ref_dev = NULL;
@@ -137,6 +161,41 @@ int main()
     error = cudaCreateTextureObject(&query_tex_dev, &res_desc, &tex_desc, NULL);
 
     printf("\ntexture object created...\n");
+
+    
+    int block_size_x = warpSize/2;
+    int block_size_y = warpSize/2;
+    int grid_size_x = n_refPoints /block_size_x;
+    int grid_size_y = n_queryPoints/block_size_y;
+
+    // dim3 block_size = dim3(block_size_x, block_size_y);
+    // dim3 grid_size = dim3(grid_size_x, grid_size_y);
+
+    dim3 block_size = dim3(16, 2);
+    dim3 grid_size = dim3(n_refPoints/16, 1);
+
+
+    // calc_dist_texture<<<grid_size, block_size>>>(query_tex_dev, n_queryPoints, ref_dev, n_refPoints, ref_pitch, n_dimentions, dist_dev);
+    calc_dist_texture<<<grid_size, block_size>>>(query_tex_dev, n_queryPoints, ref_dev, n_refPoints, ref_pitch, n_dimentions, dist_dev);
+
+    cudaDeviceSynchronize();
+    // cudaThreadSynchronize();
+
+    error = cudaGetLastError();
+
+    if (error != cudaSuccess)
+
+    {
+        printf("error in kernel\n");
+        printf("Error: %s\n", cudaGetErrorString(error));
+        exit(-1);
+    }
+
+    error = cudaMemcpy2D(dist_h,  n_refPoints * sizeof(float), dist_dev,  dist_pitch_in_bytes,  n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+
+    for(int i=0; i< n_refPoints;i++){
+        printf("%f  ", dist_h[i]);
+    }
 
     cudaFree(ref_dev);
     cudaFree(dist_dev);
