@@ -31,61 +31,62 @@ __global__ void calc_dist_texture(cudaTextureObject_t queryP,
     }
 }
 
-
-__global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, int dist_pitch, int n_queryP,const uint stage, const uint passOfStage){
+__global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, int dist_pitch, int n_queryP, const uint stage, const uint passOfStage)
+{
 
     // uint threadId = get_global_id(0);
     unsigned int xIndex = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int yIndex = blockIdx.y * blockDim.y + threadIdx.y;
 
-    if(xIndex < n_refP/2 && yIndex < n_queryP){
+    if (xIndex < n_refP / 2 && yIndex < n_queryP)
+    {
 
         unsigned int pairDistance = 1 << (stage - passOfStage);
         unsigned int blockWidth = 2 * pairDistance;
         unsigned int temp;
         bool compareResult;
-    
+
         unsigned int leftId = (xIndex & (pairDistance - 1)) + (xIndex >> (stage - passOfStage)) * blockWidth;
         unsigned int rightId = leftId + pairDistance;
-    
+
         float leftElement, rightElement;
         float greater, lesser;
         int left_idx, right_idx, greater_idx, lesser_idx;
 
         // leftElement = distances[yIndex * n_refP + leftId];
         // rightElement =distances[yIndex * n_refP +rightId];
-    
+
         // leftElement_cls = clases[yIndex * n_refP + leftId];
         // rightElement_cls = clases[yIndex * n_refP +rightId];
 
         leftElement = distances[yIndex * dist_pitch + leftId];
-        rightElement =distances[yIndex * dist_pitch +rightId];
+        rightElement = distances[yIndex * dist_pitch + rightId];
 
-        if(stage == 0 && passOfStage == 0){
+        if (stage == 0 && passOfStage == 0)
+        {
             left_idx = leftId;
             right_idx = rightId;
-
-        }else{
+        }
+        else
+        {
 
             left_idx = indexes[yIndex * dist_pitch + leftId];
-            right_idx = indexes[yIndex * dist_pitch +rightId];
+            right_idx = indexes[yIndex * dist_pitch + rightId];
         }
 
-
-    
         // leftElement_cls = clases[yIndex * dist_pitch + leftId];
         // rightElement_cls = clases[yIndex * dist_pitch +rightId];
 
         unsigned int sameDirectionBlockWidth = xIndex >> stage;
         unsigned int sameDirection = sameDirectionBlockWidth & 0x1;
-    
+
         temp = sameDirection ? rightId : temp;
         rightId = sameDirection ? leftId : rightId;
         leftId = sameDirection ? temp : leftId;
-    
+
         compareResult = (leftElement < rightElement);
-    
-    /////////////////////////////////////////////////////////////////////////////    
+
+        /////////////////////////////////////////////////////////////////////////////
         /*add these to a single if else block*/
         greater = compareResult ? rightElement : leftElement;
         // greater_cls = compareResult ? rightElement_cls : leftElement_cls;
@@ -94,46 +95,51 @@ __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, in
         lesser = compareResult ? leftElement : rightElement;
         // lesser_cls = compareResult ? leftElement_cls : rightElement_cls;
         lesser_idx = compareResult ? left_idx : right_idx;
-    //////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////
 
         distances[yIndex * dist_pitch + leftId] = lesser;
-        distances[yIndex * dist_pitch +rightId] = greater;
-    
+        distances[yIndex * dist_pitch + rightId] = greater;
+
         //dist_pitch = cls_pitch
         // clases[yIndex * dist_pitch + leftId] = lesser_cls;
         // clases[yIndex * dist_pitch +rightId] = greater_cls;
-        if(xIndex == 0 && yIndex == 0)
+        if (xIndex == 0 && yIndex == 0)
             printf("lesser idx : %d", left_idx);
 
         indexes[yIndex * dist_pitch + leftId] = lesser_idx;
-        indexes[yIndex * dist_pitch +rightId] = greater_idx;
-    } 
+        indexes[yIndex * dist_pitch + rightId] = greater_idx;
+    }
 }
 
 
-int main()
+bool knn_cuda_texture_new(const float *ref_h,
+                      int n_refPoints,
+                      const float *query_h,
+                      int n_queryPoints,
+                      int n_dimentions,
+                      int k,
+                      float *dist_h,
+                      int *idx_h)
 {
-
-    // int n_refPoints = 8192;
-    // int n_queryPoints = 1024;
-    int n_refPoints = 32;
-    int n_queryPoints = 2;
-    int n_dimentions = 4;
-    int k = 4;
-    int n_clases = 2;
-    int clsOfQuerypts[n_queryPoints];
 
     cudaError_t error;
     cudaDeviceProp prop;
-    int device_count;
+    int n_devices;
     int warpSize = 32;
 
-    error = cudaGetDeviceCount(&device_count);
+    error = cudaGetDeviceCount(&n_devices);
+    if (error != cudaSuccess || n_devices == 0)
+    {
+        printf("ERROR: No CUDA device found\n");
+        return false;
+    }
 
+    // Select the first CUDA device as default
+    error = cudaSetDevice(0);
     if (error != cudaSuccess)
     {
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        printf("ERROR: Cannot set the chosen CUDA device\n");
+        return false;
     }
 
     error = cudaGetDeviceProperties(&prop, 0);
@@ -141,70 +147,40 @@ int main()
     if (error != cudaSuccess)
     {
         printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        // exit(-1);
+        return false;
     }
 
     warpSize = prop.warpSize;
 
-
-    float *ref_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-    float *ref_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-    float *dist_h = (float *)malloc(sizeof(float) * n_refPoints * n_queryPoints);
-    //remove cls_h
-    int *cls_h = (int *)malloc(sizeof(int) * n_refPoints * n_queryPoints);
-    int *idx_h = (int *)malloc(sizeof(int) * n_refPoints * n_queryPoints);
-    float *query_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
-    float *query_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
-
-    char *refPointsFileName = "testData32_4.csv";
-    char *queryPointsFileName = "queryPoints1_4.csv";
-
-    readRefPoints(refPointsFileName, ref_row_maj_h, cls_h, n_refPoints, n_queryPoints, n_dimentions);
-
-    ref_h = transpose(ref_row_maj_h, n_refPoints, n_dimentions); //make column major
-    free(ref_row_maj_h);
-
-    // for (int i = 0; i < noOfRefPoints; i++)
-    for (int i = 0; i < 5; i++)
-    {
-        printf("%d  %f  %f  %f  %f  %d\n", i, ref_h[i * n_dimentions + 0], ref_h[i * n_dimentions + 1], ref_h[i * n_dimentions + 2], ref_h[i * n_dimentions + 3], cls_h[i]);
-    }
-
-    readQueryPoints(queryPointsFileName, query_row_maj_h, n_dimentions);
-    query_h = transpose(query_row_maj_h, n_queryPoints, n_dimentions); //make column major
-    free(query_row_maj_h);
-
-    
-
     // Allocate global memory
     float *ref_dev = NULL;
     float *dist_dev = NULL;
-    // int *cls_dev = NULL;
     int *idx_dev = NULL;
-
 
     size_t ref_pitch_in_bytes;
     size_t dist_pitch_in_bytes;
-    // size_t cls_pitch_in_bytes;
     size_t idx_pitch_in_bytes;
 
     error = cudaMallocPitch((void **)&ref_dev, &ref_pitch_in_bytes, n_refPoints * sizeof(float), n_dimentions);
     error = cudaMallocPitch((void **)&dist_dev, &dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints);
-    // error = cudaMallocPitch((void **)&cls_dev, &cls_pitch_in_bytes, n_refPoints * sizeof(int), n_queryPoints);
     error = cudaMallocPitch((void **)&idx_dev, &idx_pitch_in_bytes, n_refPoints * sizeof(int), n_queryPoints);
-
-    printf("ref_pitch: %d   dist_pitch: %d   idx_pitch: %d\n", ref_pitch_in_bytes, dist_pitch_in_bytes, idx_pitch_in_bytes);
 
     if (error != cudaSuccess)
     {
         printf("Error in cudaMallocPitch: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+
+        return false;
     }
+    ///////check whether all pitch are equal
 
     // Deduce pitch value of reference points
     size_t ref_pitch = ref_pitch_in_bytes / sizeof(float);
     size_t dist_pitch = dist_pitch_in_bytes / sizeof(float);
-    // size_t cls_pitch = cls_pitch_in_bytes / sizeof(int);
     size_t idx_pitch = idx_pitch_in_bytes / sizeof(int);
 
     //copy ref data from host to device (in column major)
@@ -214,7 +190,12 @@ int main()
     {
 
         printf("Error in cudaMemcpy2D: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+
+        return false;
     }
 
     // Allocate CUDA array for query points
@@ -225,8 +206,13 @@ int main()
     if (error != cudaSuccess)
     {
 
-        printf("Error in cudaMemcpy2D: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        printf("Error in cudaMallocArray: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+
+        return false;
     }
 
     // Copy query points from host to device
@@ -250,60 +236,72 @@ int main()
     cudaTextureObject_t query_tex_dev = 0;
     error = cudaCreateTextureObject(&query_tex_dev, &res_desc, &tex_desc, NULL);
 
-    printf("\ntexture object created...\n");
+    if (error != cudaSuccess)
+    {
 
-    
-    int block_size_x = warpSize/2;
-    int block_size_y = warpSize/2;
-    int grid_size_x = n_refPoints /block_size_x;
-    int grid_size_y = n_queryPoints/block_size_y;
+        printf("Error in cudaCreateTextureObject: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
 
-    // dim3 block_size = dim3(block_size_x, block_size_y);
-    // dim3 grid_size = dim3(grid_size_x, grid_size_y);
+        return false;
+    }
 
-    dim3 block_size = dim3(16, 2);
-    dim3 grid_size = dim3(n_refPoints/16, 1);
+    /////only considered >16
+    int block_size_x = warpSize / 2;
+    int block_size_y = warpSize / 2;
+    int grid_size_x = n_refPoints / block_size_x;
+    int grid_size_y = n_queryPoints / block_size_y;
 
+    dim3 block_size = dim3(block_size_x, block_size_y);
+    dim3 grid_size = dim3(grid_size_x, grid_size_y);
 
-    // calc_dist_texture<<<grid_size, block_size>>>(query_tex_dev, n_queryPoints, ref_dev, n_refPoints, ref_pitch, n_dimentions, dist_dev);
     calc_dist_texture<<<grid_size, block_size>>>(query_tex_dev, n_queryPoints, ref_dev, n_refPoints, ref_pitch, n_dimentions, dist_dev);
 
-    cudaDeviceSynchronize();
-    // cudaThreadSynchronize();
+    // cudaDeviceSynchronize();
+    cudaThreadSynchronize();
 
     error = cudaGetLastError();
 
     if (error != cudaSuccess)
-
     {
-        printf("error in kernel\n");
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        // printf("error in calc_dist_texture\n");
+        printf("Error in calc_dist_texture kernel: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+
+        return false;
     }
 
-    error = cudaMemcpy2D(dist_h,  n_refPoints * sizeof(float), dist_dev,  dist_pitch_in_bytes,  n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy2D(dist_h, n_refPoints * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
 
-    for(int i=0; i< n_refPoints;i++){
-        printf("%d) %f  ", i, dist_h[n_refPoints * 1 +i]);
+    if (error != cudaSuccess)
+    {
+        // printf("error in calc_dist_texture\n");
+        printf("Error cudaMemcpy2D cudaMemcpyDeviceToHost after calc_dist_texture kernel execution: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+
+        return false;
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-    // sort_dist_bitonic<<<dim3(1),dim3(32,2)>>>(float *distances, int *clases, int n_refP, int dist_pitch, int n_queryP,const uint stage, const uint passOfStage);
-
-
-    // int block_count_x = (n_refPoints / 2) / warpSize;
-    // int block_count_y = n_queryPoints / warpSize;
-    
+    block_size_x = (n_refPoints / 2) / warpSize;
+    block_size_y = n_queryPoints / warpSize;
 
     // block_size = dim3(warpSize, warpSize);
-    // block_size = dim3(warpSize, warpSize);
-    // grid_size = dim3(block_count_x, block_count_y);
-
-    block_size = dim3(16, 2);
-    grid_size = dim3(1, 1);
+    block_size = dim3(warpSize, warpSize);
+    grid_size = dim3(block_size_x, block_size_y);
 
 
-    unsigned int numStages = 0, stage = 0, passOfStage = 0, temp = 0;
+
+    //////////////////////////////////////////////////
+
+     unsigned int numStages = 0, stage = 0, passOfStage = 0, temp = 0;
 
     for (temp = n_refPoints; temp > 1; temp >>= 1)
     {
@@ -327,41 +325,142 @@ int main()
     if (error != cudaSuccess)
 
     {
-        printf("error in sort kernel\n");
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        // printf("error in sort kernel\n");
+        printf("Error in sort_dist_bitonic kernel: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+
+        return false;
     }
 
-    error = cudaMemcpy2D(dist_h,  n_refPoints * sizeof(float), dist_dev,  dist_pitch_in_bytes,  n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
-    error = cudaMemcpy2D(idx_h,  n_refPoints * sizeof(int), idx_dev,  idx_pitch_in_bytes,  n_refPoints * sizeof(int), n_queryPoints, cudaMemcpyDeviceToHost);
+    // error = cudaMemcpy2D(dist_h, n_refPoints * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy2D(dist_h, k * sizeof(float), dist_dev, dist_pitch_in_bytes, k * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+    // error = cudaMemcpy2D(idx_h,  n_refPoints * sizeof(int), idx_dev,  idx_pitch_in_bytes,  n_refPoints * sizeof(int), n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy2D(idx_h, k * sizeof(int), idx_dev, idx_pitch_in_bytes, k * sizeof(int), n_queryPoints, cudaMemcpyDeviceToHost);
 
     if (error != cudaSuccess)
     {
-        printf("error in cudaMemcpy2D\n");
+        // printf("error in cudaMemcpy2D\n");
+        printf("Error in cudaMemcpy2D cudaMemcpyDeviceToHost after sort_dist_bitonic kernel execution: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+
+        return false;
+    }
+
+     // Memory clean-up
+     cudaFree(ref_dev);
+     cudaFree(dist_dev);
+     cudaFree(idx_dev);
+     cudaFreeArray(query_array_dev);
+     cudaDestroyTextureObject(query_tex_dev);
+ 
+     return true;
+
+}
+
+
+
+
+int main()
+{
+
+    int n_refPoints = 8192;
+    int n_queryPoints = 1024;
+    int n_dimentions = 4;
+    int k = 4;
+
+    // char *refPointsFileName = "testData32_4.csv";
+    // char *queryPointsFileName = "queryPoints1_4.csv";
+    char *refPointsFileName = "testData8192_4.csv";
+    char *queryPointsFileName = "queryPoints_4.csv";
+    
+
+    cudaError_t error;
+    cudaDeviceProp prop;
+    int device_count;
+    // int warpSize = 32;
+
+    error = cudaGetDeviceCount(&device_count);
+
+    if (error != cudaSuccess)
+    {
         printf("Error: %s\n", cudaGetErrorString(error));
         exit(-1);
     }
 
+    error = cudaGetDeviceProperties(&prop, 0);
 
-    printf("\n\nafter sort....\n");
-    for(int i=0; i< n_refPoints;i++){
-        printf("%f  ", dist_h[n_refPoints * 1 +i]);
+    if (error != cudaSuccess)
+    {
+        printf("Error: %s\n", cudaGetErrorString(error));
+        exit(-1);
+    }
+
+    // warpSize = prop.warpSize;
+
+    
+    float *ref_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
+    float *query_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
+    float *dist_h = (float *)malloc(sizeof(float) * n_refPoints * n_queryPoints);
+    // float *dist_h = (float *)malloc(sizeof(float) * k * n_queryPoints);
+    int *idx_h = (int *)malloc(sizeof(int) * k * n_queryPoints);
+    // int *idx_h = (int *)malloc(sizeof(int) * n_refPoints * n_queryPoints);
+
+
+    float *ref_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
+    float *query_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
+    
+  
+
+    readRefPoints(refPointsFileName, ref_row_maj_h, n_refPoints, n_queryPoints, n_dimentions);
+
+    ref_h = transpose(ref_row_maj_h, n_refPoints, n_dimentions); //make column major
+    free(ref_row_maj_h);
+
+
+    // for (int i = 0; i < noOfRefPoints; i++)
+    // for (int i = 0; i < 5; i++)
+    // {
+    //     printf("%d  %f  %f  %f  %f \n", i, ref_h[i * n_dimentions + 0], ref_h[i * n_dimentions + 1], ref_h[i * n_dimentions + 2], ref_h[i * n_dimentions + 3]);
+    // }
+
+    readQueryPoints(queryPointsFileName, query_row_maj_h, n_dimentions);
+    query_h = transpose(query_row_maj_h, n_queryPoints, n_dimentions); //make column major
+    free(query_row_maj_h);
+
+
+    // initialize_data(ref_h, n_refPoints, query_h, n_queryPoints, n_dimentions);
+
+
+    knn_cuda_texture_new(ref_h, n_refPoints, query_h, n_queryPoints, n_dimentions, k, dist_h, idx_h);
+
+    printf("\n\ndistances after sort....\n");
+    // for(int i=0; i< n_refPoints;i++){
+    for (int i = 0; i < k; i++)
+    {
+        // printf("%d)%d  ", i,idx_h[n_refPoints * 0 +i]);
+        printf("%d)%f  ", i, dist_h[k * 1000 + i]);
     }
 
     printf("\n\nindexes after sort....\n");
-    for(int i=0; i< n_refPoints;i++){
-        printf("%d  ", idx_h[n_refPoints * 1 +i]);
+    // for(int i=0; i< n_refPoints;i++){
+    for (int i = 0; i < k; i++)
+    {
+        // printf("%d)%d  ", i,idx_h[n_refPoints * 0 +i]);
+        printf("%d)%d  ", i, idx_h[k * 1000 + i]);
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    cudaFree(ref_dev);
-    cudaFree(dist_dev);
-    cudaFree(idx_dev);
-    cudaFreeArray(query_array_dev);
+    
     free(ref_h);
     free(dist_h);
-    free(cls_h);
+    free(idx_h);
+    free(ref_row_maj_h);
+    free(query_row_maj_h);
 
     return 0;
 }

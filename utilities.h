@@ -1,19 +1,15 @@
 #include <stdlib.h>
+#include <time.h>
 
 #define MAX_SOURCE_SIZE (0x100000)
 
-
-// struct ClassAndDist
-// {
-//     float distance;
-//     int class;
-// };
 typedef struct
 {
     int cls;
     float distance;
     
 } ClassAndDist;
+
 
 char *readKernel(char *kernelFileName)
 {
@@ -34,7 +30,8 @@ char *readKernel(char *kernelFileName)
     return source_str;
 }
 
-void readRefPoints(char *fileName, float *refPoints_h, int *clases_h, int noOfRefPoints, int noOfQueryPoints, int noOfAttributes){
+
+void readRefPoints(char *fileName, float *refPoints_h, int noOfRefPoints, int noOfQueryPoints, int noOfAttributes){
 
     FILE *dataFile = fopen(fileName, "r");
 
@@ -48,28 +45,15 @@ void readRefPoints(char *fileName, float *refPoints_h, int *clases_h, int noOfRe
 
         if (index >= 0)
         {
-
-            //only read 4 attributes + class
-            // float *rowOfRefPoints = (float *)malloc(sizeof(float) * noOfAttributes);
-
-            // sscanf(line, "%f,%f,%f,%d", &rowOfRefPoints[0], &rowOfRefPoints[1], &rowOfRefPoints[2], &classAndDistArr_h[index].class);
-
             int clsTemp = 0;
-            sscanf(line, "%f,%f,%f,%f,%d", &refPoints_h[index*noOfAttributes + 0], &refPoints_h[index*noOfAttributes + 1],&refPoints_h[index*noOfAttributes + 2], &refPoints_h[index*noOfAttributes + 3], &clsTemp);
+            sscanf(line, "%f,%f,%f,%f", &refPoints_h[index*noOfAttributes + 0], &refPoints_h[index*noOfAttributes + 1],&refPoints_h[index*noOfAttributes + 2], &refPoints_h[index*noOfAttributes + 3]);
 
-            for (int i = 0; i < noOfQueryPoints; i++)
-            {
-                clases_h[i* noOfRefPoints + index] = clsTemp;
-            }
-            
-            // refPoints_h[index] = rowOfRefPoints;
         }
 
         index++;
     }
 
     fclose(dataFile);
-
 }
 
 
@@ -132,6 +116,7 @@ int findClassOfQueryPoint(int *sorted_clases, int numberOfClasses, int noOfRefPo
     return classOfQueryPoint;
 }
 
+
 float *transpose(float* rowMajor1D, int n_rows, int n_cols){
 
     float *transposeArr = (float *)malloc(sizeof(float) * n_rows * n_cols);
@@ -147,4 +132,21 @@ float *transpose(float* rowMajor1D, int n_rows, int n_cols){
 
     return transposeArr;
     
+}
+
+
+void initialize_data(float * ref, int     ref_nb, float * query, int     query_nb, int     dim) {
+
+    // Initialize random number generator
+    srand(time(NULL));
+
+    // Generate random reference points
+    for (int i=0; i<ref_nb*dim; ++i) {
+        ref[i] = 10. * (float)(rand() / (double)RAND_MAX);
+    }
+
+    // Generate random query points
+    for (int i=0; i<query_nb*dim; ++i) {
+        query[i] = 10. * (float)(rand() / (double)RAND_MAX);
+    }
 }
