@@ -33,7 +33,8 @@ __global__ void calc_dist_global_mem(float *refP, float *queryP, float *distance
     
 }
 
-__global__ void sort_dist_bitonic(float *distances, int *clases, int n_refP, int n_queryP,const uint stage, const uint passOfStage){
+// __global__ void sort_dist_bitonic(float *distances, int *clases, int n_refP, int n_queryP,const uint stage, const uint passOfStage){
+__global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, int n_queryP,const uint stage, const uint passOfStage){
 
     // uint threadId = get_global_id(0);
     unsigned int xIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -51,14 +52,23 @@ __global__ void sort_dist_bitonic(float *distances, int *clases, int n_refP, int
     
         float leftElement, rightElement;
         float greater, lesser;
-        int leftElement_cls, rightElement_cls, greater_cls, lesser_cls;
+        int left_idx, right_idx, greater_idx, lesser_idx;
 
         leftElement = distances[yIndex * n_refP + leftId];
         rightElement =distances[yIndex * n_refP +rightId];
     
-        leftElement_cls = clases[yIndex * n_refP + leftId];
-        rightElement_cls = clases[yIndex * n_refP +rightId];
-    
+        if (stage == 0 && passOfStage == 0)
+        {
+            left_idx = leftId;
+            right_idx = rightId;
+        }
+        else
+        {
+
+            left_idx = indexes[yIndex * n_refP + leftId];
+            right_idx = indexes[yIndex * n_refP + rightId];
+        }
+
         unsigned int sameDirectionBlockWidth = xIndex >> stage;
         unsigned int sameDirection = sameDirectionBlockWidth & 0x1;
     
@@ -71,16 +81,18 @@ __global__ void sort_dist_bitonic(float *distances, int *clases, int n_refP, int
     /////////////////////////////////////////////////////////////////////////////    
         /*add these to a single if else block*/
         greater = compareResult ? rightElement : leftElement;
-        greater_cls = compareResult ? rightElement_cls : leftElement_cls;
+        greater_idx = compareResult ? right_idx : left_idx;
+
         lesser = compareResult ? leftElement : rightElement;
-        lesser_cls = compareResult ? leftElement_cls : rightElement_cls;
+        lesser_idx = compareResult ? left_idx : right_idx;
     //////////////////////////////////////////////////////////////////////////////
 
         distances[yIndex * n_refP + leftId] = lesser;
         distances[yIndex * n_refP +rightId] = greater;
     
-        clases[yIndex * n_refP + leftId] = lesser_cls;
-        clases[yIndex * n_refP +rightId] = greater_cls;
+        indexes[yIndex * n_refP + leftId] = lesser_idx;
+        indexes[yIndex * n_refP + rightId] = greater_idx;
+
     }
    
 
@@ -93,16 +105,13 @@ int main()
 
     // int n_refPoints = 8192;
     // int n_queryPoints = 1024;
-    int n_refPoints = 16;
+    int n_refPoints = 32;
     int n_queryPoints = 2;
     int n_dimentions = 4;
     int k = 4;
-    int n_clases = 2;
-    int clsOfQuerypts[n_queryPoints];
 
     float *refPoints_h, *refPoints_d;
-    // ClassAndDist *classAndDistArr_h, *classAndDistArr_d;
-    int *clases_h, *clases_d;
+\    int *idx_h, *idx_dev;
     float *queryPoints_h, *queryPoints_d;
 
     float *distances_h, *distances_d;//distances_h not needed..only for test
@@ -136,25 +145,23 @@ int main()
     printf("max texture dimension x : %d    y : %d\n", prop.maxTexture2D[0], prop.maxTexture2D[1]);
 
     refPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-    // classAndDistArr_h = (ClassAndDist *)malloc(sizeof(ClassAndDist) * n_refPoints * n_queryPoints);
-    clases_h = (int *) malloc(sizeof(int) * n_refPoints * n_queryPoints);
+    // idx_h = (int *) malloc(sizeof(int) * n_refPoints * n_queryPoints);
+    idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
     queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
 
     distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
 
-    // printf("after malloc\n");
-
     // char *refPointsFileName = "testData8192_4.csv";
     // char *queryPointsFileName = "queryPoints_4.csv";
-     char *refPointsFileName = "testData16_4.csv";
+     char *refPointsFileName = "testData32_4.csv";
     char *queryPointsFileName = "queryPoints1_4.csv";
 
-    readRefPoints(refPointsFileName, refPoints_h, clases_h, n_refPoints, n_queryPoints, n_dimentions);
+    readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
 
     // for (int i = 0; i < noOfRefPoints; i++)
     for (int i = 0; i < 5; i++)
     {
-        printf("%d  %f  %f  %f  %f  %d\n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3], clases_h[i]);
+        printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
     }
 
     readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
@@ -164,11 +171,9 @@ int main()
     //     printf("%d  %f  %f  %f  %f \n", i, queryPoints_h[i*n_dimentions + 0], queryPoints_h[i * n_dimentions + 1], queryPoints_h[i*n_dimentions + 2], queryPoints_h[i*n_dimentions + 3]);
     // }
 
-
     error = cudaMalloc((void **)&refPoints_d, sizeof(float) * n_dimentions * n_refPoints);
     error = cudaMalloc((void **)&queryPoints_d, sizeof(float) * n_dimentions * n_queryPoints);
-    // // error = cudaMalloc((void **)classAndDistArr_d, sizeof(ClassAndDist) * n_refPoints * n_queryPoints);
-    error = cudaMalloc((void **)&clases_d, sizeof(int) * n_refPoints * n_queryPoints);
+    error = cudaMalloc((void **)&idx_dev, sizeof(int) * n_refPoints * n_queryPoints);
     error = cudaMalloc((void **)&distances_d, sizeof(float) * n_refPoints * n_queryPoints);
 
     if (error != cudaSuccess)
@@ -179,7 +184,7 @@ int main()
 
     cudaMemcpy(refPoints_d, refPoints_h, sizeof(float) * n_dimentions * n_refPoints, cudaMemcpyHostToDevice);
     cudaMemcpy(queryPoints_d, queryPoints_h, sizeof(float) * n_dimentions * n_queryPoints, cudaMemcpyHostToDevice);
-    cudaMemcpy(clases_d, clases_h, sizeof(int) * n_refPoints * n_queryPoints, cudaMemcpyHostToDevice);
+    
 
     if (error != cudaSuccess)
     {
@@ -214,7 +219,6 @@ int main()
     
     printf("after kernel");
     error = cudaMemcpy(distances_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
-    error = cudaMemcpy(clases_h, clases_d, sizeof(int) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
 
 
     if (error != cudaSuccess)
@@ -229,30 +233,28 @@ int main()
 
         // printf("hello");
 
-        printf("%f  ", distances_h[n_refPoints + i]);
-
-    }
-    printf("\n\nclases after sort\n");
-    for(int i = 0; i<n_refPoints ; i++){
-
-        
-        printf("%d  ", clases_h[n_refPoints + i]);
+        printf("%d)%f  ", i,distances_h[n_refPoints + i]);
 
     }
 
 
     /////////////////////////////////////////////////////////////////////////////////
 
+    ////handle <32 situations
+
     // int block_count_x = (n_refPoints / 2) / warpSize;
+    // int block_count_x = 16;
     // int block_count_y = n_queryPoints / warpSize;
-    
+    // int block_count_y = 2;
 
     // block_size = dim3(warpSize, warpSize);
     // block_size = dim3(warpSize, warpSize);
     // grid_size = dim3(block_count_x, block_count_y);
-
-    block_size = dim3(8, 2);
+    block_size = dim3(warpSize/2, 2);
     grid_size = dim3(1, 1);
+
+    // block_size = dim3(8, 2);
+    // grid_size = dim3(1, 1);
 
 
     unsigned int numStages = 0, stage = 0, passOfStage = 0, temp = 0;
@@ -268,7 +270,7 @@ int main()
         for (passOfStage = 0; passOfStage < stage + 1; ++passOfStage)
         {
 
-            sort_dist_bitonic<<<grid_size, block_size>>>(distances_d, clases_d, n_refPoints, n_queryPoints, stage, passOfStage);
+            sort_dist_bitonic<<<grid_size, block_size>>>(distances_d, idx_dev, n_refPoints, n_queryPoints, stage, passOfStage);
             cudaDeviceSynchronize();
         }
     }
@@ -284,7 +286,8 @@ int main()
     }
 
     error = cudaMemcpy(distances_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
-    error = cudaMemcpy(clases_h, clases_d, sizeof(int) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy(idx_h, idx_dev, sizeof(int) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy2D(idx_h, k * sizeof(int), idx_dev, n_refPoints*sizeof(int), k * sizeof(int), n_queryPoints, cudaMemcpyDeviceToHost);
     
     printf("\n\ndistances after sort\n");
     for(int i = 0; i<n_refPoints ; i++){
@@ -293,42 +296,18 @@ int main()
 
     }
 
-    printf("\n\nclases after sort\n");
-    for(int i = 0; i<n_refPoints ; i++){
-
-        
-        printf("%d  ", clases_h[n_refPoints + i]);
-
-    }
-
-    // printf("\n\nclases after sort\n");
-    // for(int i = 0; i<n_refPoints ; i++){
-
-        
-    //     printf("%d  ", clases_h[i]);
-
-    // }
-
-    /////////////////////////////////////////////////////////////////////////////////
-
-    /////////////////////////////////////////////////////////////////////////////////
-
-    for(int i = 0; i< n_queryPoints; i++){
-
-        clsOfQuerypts[i] = findClassOfQueryPoint(clases_h, n_clases, n_refPoints, i, k);
-
-        // printf("\nquery point %d class : %d\n", i, clsOfQuerypts[i]);
+    printf("\n\nindexes after sort\n");
+    for(int i = 0; i < k ; i++){
+        // printf("%d  ", idx_h[n_refPoints + i]);
+        printf("%d  ", idx_h[k + i]);
 
     }
-    /////////////////////////////////////////////////////////////////////////////////
 
     cudaFree(refPoints_d);
     cudaFree(queryPoints_d);
-    cudaFree(clases_d);
     cudaFree(distances_d);
     free(refPoints_h);
     free(queryPoints_h);
-    free(clases_h);
     free(distances_h);//not need if distances are not get back to host
 
     return 0;
