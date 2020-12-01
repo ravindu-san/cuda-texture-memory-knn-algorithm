@@ -1,7 +1,3 @@
-//
-// Created by ravindu on 2020-11-15.
-//
-
 //#include <stdlib.h>
 #include <stdio.h>
 #include "utilities.h"
@@ -99,34 +95,35 @@ __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, in
 }
 
 
+bool knn_cuda_global(const float *ref_h,
+                    int n_refPoints,
+                    const float *query_h,
+                    int n_queryPoints,
+                    int n_dimentions,
+                    int k,
+                    float *dist_h,
+                    int *idx_h){
 
-int main()
-{
-
-    // int n_refPoints = 8192;
-    // int n_queryPoints = 1024;
-    int n_refPoints = 32;
-    int n_queryPoints = 2;
-    int n_dimentions = 4;
-    int k = 4;
-
-    float *refPoints_h, *refPoints_d;
-\    int *idx_h, *idx_dev;
-    float *queryPoints_h, *queryPoints_d;
-
-    float *distances_h, *distances_d;//distances_h not needed..only for test
-
+    
     cudaError_t error;
     cudaDeviceProp prop;
-    int device_count;
+    int n_devices;
     int warpSize = 32;
 
-    error = cudaGetDeviceCount(&device_count);
 
+    error = cudaGetDeviceCount(&n_devices);
+    if (error != cudaSuccess || n_devices == 0)
+    {
+        printf("ERROR: No CUDA device found\n");
+        return false;
+    }
+
+    // Select the first CUDA device as default
+    error = cudaSetDevice(0);
     if (error != cudaSuccess)
     {
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        printf("ERROR: Cannot set the chosen CUDA device\n");
+        return false;
     }
 
     error = cudaGetDeviceProperties(&prop, 0);
@@ -134,71 +131,56 @@ int main()
     if (error != cudaSuccess)
     {
         printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        // exit(-1);
+        return false;
     }
 
     warpSize = prop.warpSize;
 
-    printf("device count : %d\n", device_count);
-    printf("device name : %s\n", prop.name);
-    printf("device total global memory(KB) : %d\n", prop.totalGlobalMem / 1024);
-    printf("max texture dimension x : %d    y : %d\n", prop.maxTexture2D[0], prop.maxTexture2D[1]);
+    float *refPoints_d;
+    int *idx_dev;
+    float *queryPoints_d;
+    float *distances_d;
 
-    refPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-    // idx_h = (int *) malloc(sizeof(int) * n_refPoints * n_queryPoints);
-    idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
-    queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
-
-    distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
-
-    // char *refPointsFileName = "testData8192_4.csv";
-    // char *queryPointsFileName = "queryPoints_4.csv";
-     char *refPointsFileName = "testData32_4.csv";
-    char *queryPointsFileName = "queryPoints1_4.csv";
-
-    readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
-
-    // for (int i = 0; i < noOfRefPoints; i++)
-    for (int i = 0; i < 5; i++)
-    {
-        printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
-    }
-
-    readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
-
-    // for (int i = 0; i < n_queryPoints; i++)
-    // {
-    //     printf("%d  %f  %f  %f  %f \n", i, queryPoints_h[i*n_dimentions + 0], queryPoints_h[i * n_dimentions + 1], queryPoints_h[i*n_dimentions + 2], queryPoints_h[i*n_dimentions + 3]);
-    // }
 
     error = cudaMalloc((void **)&refPoints_d, sizeof(float) * n_dimentions * n_refPoints);
     error = cudaMalloc((void **)&queryPoints_d, sizeof(float) * n_dimentions * n_queryPoints);
     error = cudaMalloc((void **)&idx_dev, sizeof(int) * n_refPoints * n_queryPoints);
     error = cudaMalloc((void **)&distances_d, sizeof(float) * n_refPoints * n_queryPoints);
 
-    if (error != cudaSuccess)
-    {
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
-    }
-
-    cudaMemcpy(refPoints_d, refPoints_h, sizeof(float) * n_dimentions * n_refPoints, cudaMemcpyHostToDevice);
-    cudaMemcpy(queryPoints_d, queryPoints_h, sizeof(float) * n_dimentions * n_queryPoints, cudaMemcpyHostToDevice);
-    
 
     if (error != cudaSuccess)
     {
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        printf("(global) Error in cudaMalloc: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(refPoints_d);
+        cudaFree(queryPoints_d);
+        cudaFree(distances_d);
+        cudaFree(idx_dev);
     }
 
-    int block_dim = warpSize / 2;
-    int grid_dim = (n_refPoints / block_dim);
+    error = cudaMemcpy(refPoints_d, ref_h, sizeof(float) * n_dimentions * n_refPoints, cudaMemcpyHostToDevice);
+    error = cudaMemcpy(queryPoints_d, query_h, sizeof(float) * n_dimentions * n_queryPoints, cudaMemcpyHostToDevice);
 
-    dim3 block_size = dim3(block_dim, block_dim);
-    dim3 grid_size = dim3(grid_dim, grid_dim);
+    if (error != cudaSuccess)
+    {
+        printf("(global) Error in cudaMemcpy: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(refPoints_d);
+        cudaFree(queryPoints_d);
+        cudaFree(distances_d);
+        cudaFree(idx_dev);
+    }
 
-    printf("\nhello before\n");
+    /////only considered >16
+    int block_size_x = warpSize / 2;
+    int block_size_y = warpSize / 2;
+    int grid_size_x = n_refPoints / block_size_x;
+    int grid_size_y = n_queryPoints / block_size_y;
+
+    dim3 block_size = dim3(block_size_x, block_size_y);
+    dim3 grid_size = dim3(grid_size_x, grid_size_y);
+
 
     calc_dist_global_mem<<<grid_size, block_size>>>(refPoints_d, queryPoints_d, distances_d, n_refPoints, n_queryPoints, n_dimentions);
 
@@ -210,51 +192,33 @@ int main()
     if (error != cudaSuccess)
 
     {
-        printf("error in kernel\n");
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+        // printf("error in kernel\n");
+        printf("(global) Error in calc_dist_global_mem: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(refPoints_d);
+        cudaFree(queryPoints_d);
+        cudaFree(distances_d);
+        cudaFree(idx_dev);
     }
 
+    /////////////////////////////////////////////////////////////////////////////////////
+    //remove after test
+    error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
 
-    
-    printf("after kernel");
-    error = cudaMemcpy(distances_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
-
-
-    if (error != cudaSuccess)
-    {
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
-    }
-
-
-    printf("distances before sort\n");
+     printf("\n\ndistances before sort\n");
     for(int i = 0; i<n_refPoints ; i++){
 
-        // printf("hello");
-
-        printf("%d)%f  ", i,distances_h[n_refPoints + i]);
+        printf("%d)%f  ", i,dist_h[0 + i]);
 
     }
+    //////////////////////////////////////////////////////////////////////////////////////
 
-
-    /////////////////////////////////////////////////////////////////////////////////
-
-    ////handle <32 situations
-
-    // int block_count_x = (n_refPoints / 2) / warpSize;
-    // int block_count_x = 16;
-    // int block_count_y = n_queryPoints / warpSize;
-    // int block_count_y = 2;
+    grid_size_x = (n_refPoints / 2) / warpSize;
+    grid_size_y = n_queryPoints / warpSize;
 
     // block_size = dim3(warpSize, warpSize);
-    // block_size = dim3(warpSize, warpSize);
-    // grid_size = dim3(block_count_x, block_count_y);
-    block_size = dim3(warpSize/2, 2);
-    grid_size = dim3(1, 1);
-
-    // block_size = dim3(8, 2);
-    // grid_size = dim3(1, 1);
+    block_size = dim3(warpSize, warpSize);
+    grid_size = dim3(grid_size_x, grid_size_y);
 
 
     unsigned int numStages = 0, stage = 0, passOfStage = 0, temp = 0;
@@ -280,35 +244,115 @@ int main()
     if (error != cudaSuccess)
 
     {
-        printf("error in sort kernel\n");
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
+         // printf("error in sort kernel\n");
+         printf("(global) Error in sort_dist_bitonic kernel: %s\n", cudaGetErrorString(error));
+         // exit(-1);
+         cudaFree(refPoints_d);
+         cudaFree(queryPoints_d);
+         cudaFree(distances_d);
+         cudaFree(idx_dev);
+ 
+         return false;
     }
 
-    error = cudaMemcpy(distances_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
-    error = cudaMemcpy(idx_h, idx_dev, sizeof(int) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+
+    error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
     error = cudaMemcpy2D(idx_h, k * sizeof(int), idx_dev, n_refPoints*sizeof(int), k * sizeof(int), n_queryPoints, cudaMemcpyDeviceToHost);
+
+
+    if (error != cudaSuccess)
+
+    {
+         // printf("error in sort kernel\n");
+         printf("(global) Error in cudaMemcpy or cudaMemcpy2D: %s\n", cudaGetErrorString(error));
+         // exit(-1);
+         cudaFree(refPoints_d);
+         cudaFree(queryPoints_d);
+         cudaFree(distances_d);
+         cudaFree(idx_dev);
+ 
+         return false;
+    }
+    
+    cudaFree(refPoints_d);
+    cudaFree(queryPoints_d);
+    cudaFree(distances_d);
+    cudaFree(idx_dev);
+
+    return true;
+
+
+}
+
+
+
+int main()
+{
+
+    int n_refPoints = 8192;
+    int n_queryPoints = 1024;
+    // int n_refPoints = 32;
+    // int n_queryPoints = 2;
+    int n_dimentions = 4;
+    int k = 4;
+
+    float *refPoints_h;
+    int *idx_h;
+    float *queryPoints_h;
+
+    float *distances_h;//distances_h not needed..only for test
+
+    refPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
+    // idx_h = (int *) malloc(sizeof(int) * n_refPoints * n_queryPoints);
+    idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
+    queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
+
+    distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
+
+    char *refPointsFileName = "testData8192_4.csv";
+    char *queryPointsFileName = "queryPoints_4.csv";
+    //  char *refPointsFileName = "testData32_4.csv";
+    // char *queryPointsFileName = "queryPoints1_4.csv";
+
+    readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
+
+    
+
+    // for (int i = 0; i < noOfRefPoints; i++)
+    for (int i = 0; i < 5; i++)
+    {
+        printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
+    }
+
+    
+    
+    readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
+ 
+
+    knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+
     
     printf("\n\ndistances after sort\n");
     for(int i = 0; i<n_refPoints ; i++){
 
-        printf("%f  ", distances_h[n_refPoints + i]);
+        // printf("%f  ", distances_h[n_refPoints + i]);
+        printf("%f  ", distances_h[0 + i]);
+
 
     }
 
     printf("\n\nindexes after sort\n");
     for(int i = 0; i < k ; i++){
         // printf("%d  ", idx_h[n_refPoints + i]);
-        printf("%d  ", idx_h[k + i]);
+        // printf("%d  ", idx_h[k + i]);
+        printf("%d  ", idx_h[0 + i]);
 
     }
 
-    cudaFree(refPoints_d);
-    cudaFree(queryPoints_d);
-    cudaFree(distances_d);
     free(refPoints_h);
     free(queryPoints_h);
     free(distances_h);//not need if distances are not get back to host
+    free(idx_h);
 
     return 0;
 }

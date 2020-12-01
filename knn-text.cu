@@ -218,6 +218,19 @@ bool knn_cuda_texture_new(const float *ref_h,
     // Copy query points from host to device
     error = cudaMemcpyToArray(query_array_dev, 0, 0, query_h, n_queryPoints * sizeof(float) * n_dimentions, cudaMemcpyHostToDevice);
 
+    if (error != cudaSuccess)
+    {
+
+        printf("Error in cudaMemcpyToArray: %s\n", cudaGetErrorString(error));
+        // exit(-1);
+        cudaFree(ref_dev);
+        cudaFree(dist_dev);
+        cudaFree(idx_dev);
+        cudaFreeArray(query_array_dev);
+
+        return false;
+    }
+
     // Resource descriptor
     struct cudaResourceDesc res_desc;
     memset(&res_desc, 0, sizeof(res_desc));
@@ -244,6 +257,7 @@ bool knn_cuda_texture_new(const float *ref_h,
         cudaFree(ref_dev);
         cudaFree(dist_dev);
         cudaFree(idx_dev);
+        cudaFreeArray(query_array_dev);
 
         return false;
     }
@@ -272,6 +286,8 @@ bool knn_cuda_texture_new(const float *ref_h,
         cudaFree(ref_dev);
         cudaFree(dist_dev);
         cudaFree(idx_dev);
+        cudaFreeArray(query_array_dev);
+        cudaDestroyTextureObject(query_tex_dev);
 
         return false;
     }
@@ -286,6 +302,8 @@ bool knn_cuda_texture_new(const float *ref_h,
         cudaFree(ref_dev);
         cudaFree(dist_dev);
         cudaFree(idx_dev);
+        cudaFreeArray(query_array_dev);
+        cudaDestroyTextureObject(query_tex_dev);
 
         return false;
     }
@@ -331,6 +349,8 @@ bool knn_cuda_texture_new(const float *ref_h,
         cudaFree(ref_dev);
         cudaFree(dist_dev);
         cudaFree(idx_dev);
+        cudaFreeArray(query_array_dev);
+        cudaDestroyTextureObject(query_tex_dev);
 
         return false;
     }
@@ -348,6 +368,8 @@ bool knn_cuda_texture_new(const float *ref_h,
         cudaFree(ref_dev);
         cudaFree(dist_dev);
         cudaFree(idx_dev);
+        cudaFreeArray(query_array_dev);
+        cudaDestroyTextureObject(query_tex_dev);
 
         return false;
     }
