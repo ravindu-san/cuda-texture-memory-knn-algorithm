@@ -1,6 +1,6 @@
 //#include <stdlib.h>
 #include <stdio.h>
-#include "utilities.h"
+// #include "utilities.h"
 
 __global__ void calc_dist_global_mem(float *refP, float *queryP, float *distances, int n_refP, int n_queryP, int n_dim)
 {
@@ -286,73 +286,73 @@ bool knn_cuda_global(const float *ref_h,
 
 
 
-int main()
-{
+// int main()
+// {
 
-    int n_refPoints = 8192;
-    int n_queryPoints = 1024;
-    // int n_refPoints = 32;
-    // int n_queryPoints = 2;
-    int n_dimentions = 4;
-    int k = 4;
+//     int n_refPoints = 8192;
+//     int n_queryPoints = 1024;
+//     // int n_refPoints = 32;
+//     // int n_queryPoints = 2;
+//     int n_dimentions = 4;
+//     int k = 4;
 
-    float *refPoints_h;
-    int *idx_h;
-    float *queryPoints_h;
+//     float *refPoints_h;
+//     int *idx_h;
+//     float *queryPoints_h;
 
-    float *distances_h;//distances_h not needed..only for test
+//     float *distances_h;//distances_h not needed..only for test
 
-    refPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-    // idx_h = (int *) malloc(sizeof(int) * n_refPoints * n_queryPoints);
-    idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
-    queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
+//     refPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
+//     // idx_h = (int *) malloc(sizeof(int) * n_refPoints * n_queryPoints);
+//     idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
+//     queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
 
-    distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
+//     distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
 
-    char *refPointsFileName = "testData8192_4.csv";
-    char *queryPointsFileName = "queryPoints_4.csv";
-    //  char *refPointsFileName = "testData32_4.csv";
-    // char *queryPointsFileName = "queryPoints1_4.csv";
+//     char *refPointsFileName = "testData8192_4.csv";
+//     char *queryPointsFileName = "queryPoints_4.csv";
+//     //  char *refPointsFileName = "testData32_4.csv";
+//     // char *queryPointsFileName = "queryPoints1_4.csv";
 
-    readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
-
-    
-
-    // for (int i = 0; i < noOfRefPoints; i++)
-    for (int i = 0; i < 5; i++)
-    {
-        printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
-    }
+//     readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
 
     
+
+//     // for (int i = 0; i < noOfRefPoints; i++)
+//     for (int i = 0; i < 5; i++)
+//     {
+//         printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
+//     }
+
     
-    readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
+    
+//     readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
  
 
-    knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+//     knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
 
     
-    printf("\n\ndistances after sort\n");
-    for(int i = 0; i<n_refPoints ; i++){
+//     printf("\n\ndistances after sort\n");
+//     for(int i = 0; i<n_refPoints ; i++){
 
-        // printf("%f  ", distances_h[n_refPoints + i]);
-        printf("%f  ", distances_h[0 + i]);
+//         // printf("%f  ", distances_h[n_refPoints + i]);
+//         printf("%f  ", distances_h[0 + i]);
 
 
-    }
+//     }
 
-    printf("\n\nindexes after sort\n");
-    for(int i = 0; i < k ; i++){
-        // printf("%d  ", idx_h[n_refPoints + i]);
-        // printf("%d  ", idx_h[k + i]);
-        printf("%d  ", idx_h[0 + i]);
+//     printf("\n\nindexes after sort\n");
+//     for(int i = 0; i < k ; i++){
+//         // printf("%d  ", idx_h[n_refPoints + i]);
+//         // printf("%d  ", idx_h[k + i]);
+//         printf("%d  ", idx_h[0 + i]);
 
-    }
+//     }
 
-    free(refPoints_h);
-    free(queryPoints_h);
-    free(distances_h);//not need if distances are not get back to host
-    free(idx_h);
+//     free(refPoints_h);
+//     free(queryPoints_h);
+//     free(distances_h);//not need if distances are not get back to host
+//     free(idx_h);
 
-    return 0;
-}
+//     return 0;
+// }
