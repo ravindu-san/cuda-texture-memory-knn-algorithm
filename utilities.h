@@ -135,18 +135,18 @@ float *transpose(float* rowMajor1D, int n_rows, int n_cols){
 }
 
 
-void initialize_data(float * ref, int     ref_nb, float * query, int     query_nb, int     dim) {
+// void initialize_data(float * ref, int     ref_nb, float * query, int     query_nb, int     dim) {
 
-    // Initialize random number generator
-    srand(time(NULL));
+//     // Initialize random number generator
+//     srand(time(NULL));
 
-    // Generate random reference points
-    for (int i=0; i<ref_nb*dim; ++i) {
-        ref[i] = 10. * (float)(rand() / (double)RAND_MAX);
-    }
+//     // Generate random reference points
+//     for (int i=0; i<ref_nb*dim; ++i) {
+//         ref[i] = 10. * (float)(rand() / (double)RAND_MAX);
+//     }
 
-    // Generate random query points
-    for (int i=0; i<query_nb*dim; ++i) {
-        query[i] = 10. * (float)(rand() / (double)RAND_MAX);
-    }
-}
+//     // Generate random query points
+//     for (int i=0; i<query_nb*dim; ++i) {
+//         query[i] = 10. * (float)(rand() / (double)RAND_MAX);
+//     }
+// }

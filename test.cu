@@ -2,7 +2,8 @@
 #include <stdio.h>
 
 #include "knn.cu"
-// #include "knn-text.cu"
+#include "knn-text.cu"
+#include "utilities.h"
 // #include "knn-text-old.cu"
 
 
@@ -28,40 +29,66 @@ void initialize_data(float * ref,
 
 int main(){
 
-    clock_t knn_glob_start, knn_glob_end;
+    clock_t knn_glob_start, knn_glob_end, knn_text_new_start, knn_text_new_end;
+    // clock_t knn_text_new_start = 0, knn_text_new_end = 0;
+    // clock_t knn_glob_start, knn_glob_end;
     double glob_time = 0.0;
+    double text_new_time = 0.0;
 
-    int n_refPoints = 8192*2*2*2*2;
+    // int n_refPoints = 8192*2*2*2*2;
+    int n_refPoints = 8192;
     int n_queryPoints = 1024;
     int n_dimentions = 4;
     int k = 4;
 
+    // char *refPointsFileName = "testData8192_4.csv";
+    // char *queryPointsFileName = "queryPoints_4.csv";
+
     float *refPoints_h;
+    float *refPoints_transpose_h;
     float *queryPoints_h;
+    float *queryPoints_transpose_h;
     int *idx_h;
     float *distances_h;
 
     refPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
+    refPoints_transpose_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
     queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
+    queryPoints_transpose_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
     idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
     distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
 
+ 
+
    initialize_data(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions);
+    // readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
+    // for (int i = 0; i < noOfRefPoints; i++)
+    // for (int i = 0; i < 5; i++)
+    // {
+    //     printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
+    // }
+    // readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
+
+   refPoints_transpose_h = transpose(refPoints_h , n_refPoints, n_dimentions);
+   queryPoints_transpose_h = transpose(queryPoints_h , n_queryPoints, n_dimentions);
 
 //    for (size_t i = 0; i < n_refPoints* n_dimentions; i++)
 //    {
     //    printf("%d    %f\n", i, refPoints_h[i]);
 //    }
 
+  
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     knn_glob_start = clock();
     knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
-    knn_glob_start = clock();
+    knn_glob_end = clock();
 
-    glob_time = (double)(knn_glob_start - knn_glob_end)/CLOCKS_PER_SEC;
+    glob_time = (double)(knn_glob_end - knn_glob_start )/CLOCKS_PER_SEC;
 
 
     printf("\n\ndistances after sort\n");
-    for(int i = 0; i<n_refPoints ; i++){
+    for(int i = 0; i<k ; i++){
 
         printf("%f  ", distances_h[0 + i]);
     }
@@ -72,10 +99,34 @@ int main(){
     }
 
     printf("\n\n Global Time:%f\n", glob_time);
-   
 
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    knn_text_new_start = clock();
+    knn_cuda_texture_new(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+    knn_text_new_end = clock();
+
+    text_new_time = (double)(knn_text_new_end - knn_text_new_start) / CLOCKS_PER_SEC;
+
+
+    printf("\n\ndistances after sort\n");
+    for(int i = 0; i< k ; i++){
+
+        printf("%f  ", distances_h[0 + i]);
+    }
+
+    printf("\n\nindexes after sort\n");
+    for(int i = 0; i < k ; i++){
+        printf("%d  ", idx_h[0 + i]);
+    }
+
+    printf("\n\n Texture New Time:%f\n", text_new_time);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
     free(refPoints_h);
+    free(refPoints_transpose_h);
     free(queryPoints_h);
+    free(queryPoints_transpose_h);
     free(distances_h);//not need if distances are not get back to host
     free(idx_h);
 

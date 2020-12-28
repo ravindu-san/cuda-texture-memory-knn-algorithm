@@ -1,6 +1,6 @@
 // #include <stdlib.h>
 #include <stdio.h>
-#include "utilities.h"
+// #include "utilities.h"
 
 //ToDo
 //kernel execution
@@ -103,8 +103,8 @@ __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, in
         //dist_pitch = cls_pitch
         // clases[yIndex * dist_pitch + leftId] = lesser_cls;
         // clases[yIndex * dist_pitch +rightId] = greater_cls;
-        if (xIndex == 0 && yIndex == 0)
-            printf("lesser idx : %d", left_idx);
+        // if (xIndex == 0 && yIndex == 0)
+        //     printf("lesser idx : %d", left_idx);
 
         indexes[yIndex * dist_pitch + leftId] = lesser_idx;
         indexes[yIndex * dist_pitch + rightId] = greater_idx;
@@ -292,6 +292,8 @@ bool knn_cuda_texture_new(const float *ref_h,
         return false;
     }
 
+    //////////////////////////////////////////////////////////////////////////////////
+
     error = cudaMemcpy2D(dist_h, n_refPoints * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
 
     if (error != cudaSuccess)
@@ -307,6 +309,16 @@ bool knn_cuda_texture_new(const float *ref_h,
 
         return false;
     }
+
+
+    //  printf("\n\ndistances before sort\n");
+    // for(int i = 0; i<n_refPoints ; i++){
+
+    //     printf("%d)%f  ", i,dist_h[0 + i]);
+
+    // }
+
+    ////////////////////////////////////////////////////////////////////////////////////////
 
     block_size_x = (n_refPoints / 2) / warpSize;
     block_size_y = n_queryPoints / warpSize;
@@ -388,101 +400,101 @@ bool knn_cuda_texture_new(const float *ref_h,
 
 
 
-int main()
-{
+// int main()
+// {
 
-    int n_refPoints = 8192;
-    int n_queryPoints = 1024;
-    int n_dimentions = 4;
-    int k = 4;
+//     int n_refPoints = 8192;
+//     int n_queryPoints = 1024;
+//     int n_dimentions = 4;
+//     int k = 4;
 
-    // char *refPointsFileName = "testData32_4.csv";
-    // char *queryPointsFileName = "queryPoints1_4.csv";
-    char *refPointsFileName = "testData8192_4.csv";
-    char *queryPointsFileName = "queryPoints_4.csv";
+//     // char *refPointsFileName = "testData32_4.csv";
+//     // char *queryPointsFileName = "queryPoints1_4.csv";
+//     char *refPointsFileName = "testData8192_4.csv";
+//     char *queryPointsFileName = "queryPoints_4.csv";
     
 
-    cudaError_t error;
-    cudaDeviceProp prop;
-    int device_count;
-    // int warpSize = 32;
+//     cudaError_t error;
+//     cudaDeviceProp prop;
+//     int device_count;
+//     // int warpSize = 32;
 
-    error = cudaGetDeviceCount(&device_count);
+//     error = cudaGetDeviceCount(&device_count);
 
-    if (error != cudaSuccess)
-    {
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
-    }
+//     if (error != cudaSuccess)
+//     {
+//         printf("Error: %s\n", cudaGetErrorString(error));
+//         exit(-1);
+//     }
 
-    error = cudaGetDeviceProperties(&prop, 0);
+//     error = cudaGetDeviceProperties(&prop, 0);
 
-    if (error != cudaSuccess)
-    {
-        printf("Error: %s\n", cudaGetErrorString(error));
-        exit(-1);
-    }
+//     if (error != cudaSuccess)
+//     {
+//         printf("Error: %s\n", cudaGetErrorString(error));
+//         exit(-1);
+//     }
 
-    // warpSize = prop.warpSize;
+//     // warpSize = prop.warpSize;
 
     
-    float *ref_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-    float *query_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
-    float *dist_h = (float *)malloc(sizeof(float) * n_refPoints * n_queryPoints);
-    // float *dist_h = (float *)malloc(sizeof(float) * k * n_queryPoints);
-    int *idx_h = (int *)malloc(sizeof(int) * k * n_queryPoints);
-    // int *idx_h = (int *)malloc(sizeof(int) * n_refPoints * n_queryPoints);
+//     float *ref_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
+//     float *query_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
+//     float *dist_h = (float *)malloc(sizeof(float) * n_refPoints * n_queryPoints);
+//     // float *dist_h = (float *)malloc(sizeof(float) * k * n_queryPoints);
+//     int *idx_h = (int *)malloc(sizeof(int) * k * n_queryPoints);
+//     // int *idx_h = (int *)malloc(sizeof(int) * n_refPoints * n_queryPoints);
 
 
-    float *ref_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-    float *query_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
+//     float *ref_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
+//     float *query_row_maj_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
     
   
 
-    readRefPoints(refPointsFileName, ref_row_maj_h, n_refPoints, n_queryPoints, n_dimentions);
+//     readRefPoints(refPointsFileName, ref_row_maj_h, n_refPoints, n_queryPoints, n_dimentions);
 
-    ref_h = transpose(ref_row_maj_h, n_refPoints, n_dimentions); //make column major
-    free(ref_row_maj_h);
-
-
-    // for (int i = 0; i < noOfRefPoints; i++)
-    // for (int i = 0; i < 5; i++)
-    // {
-    //     printf("%d  %f  %f  %f  %f \n", i, ref_h[i * n_dimentions + 0], ref_h[i * n_dimentions + 1], ref_h[i * n_dimentions + 2], ref_h[i * n_dimentions + 3]);
-    // }
-
-    readQueryPoints(queryPointsFileName, query_row_maj_h, n_dimentions);
-    query_h = transpose(query_row_maj_h, n_queryPoints, n_dimentions); //make column major
-    free(query_row_maj_h);
+//     ref_h = transpose(ref_row_maj_h, n_refPoints, n_dimentions); //make column major
+//     free(ref_row_maj_h);
 
 
-    // initialize_data(ref_h, n_refPoints, query_h, n_queryPoints, n_dimentions);
+//     // for (int i = 0; i < noOfRefPoints; i++)
+//     // for (int i = 0; i < 5; i++)
+//     // {
+//     //     printf("%d  %f  %f  %f  %f \n", i, ref_h[i * n_dimentions + 0], ref_h[i * n_dimentions + 1], ref_h[i * n_dimentions + 2], ref_h[i * n_dimentions + 3]);
+//     // }
+
+//     readQueryPoints(queryPointsFileName, query_row_maj_h, n_dimentions);
+//     query_h = transpose(query_row_maj_h, n_queryPoints, n_dimentions); //make column major
+//     free(query_row_maj_h);
 
 
-    knn_cuda_texture_new(ref_h, n_refPoints, query_h, n_queryPoints, n_dimentions, k, dist_h, idx_h);
+//     // initialize_data(ref_h, n_refPoints, query_h, n_queryPoints, n_dimentions);
 
-    printf("\n\ndistances after sort....\n");
-    // for(int i=0; i< n_refPoints;i++){
-    for (int i = 0; i < k; i++)
-    {
-        // printf("%d)%d  ", i,idx_h[n_refPoints * 0 +i]);
-        printf("%d)%f  ", i, dist_h[k * 1000 + i]);
-    }
 
-    printf("\n\nindexes after sort....\n");
-    // for(int i=0; i< n_refPoints;i++){
-    for (int i = 0; i < k; i++)
-    {
-        // printf("%d)%d  ", i,idx_h[n_refPoints * 0 +i]);
-        printf("%d)%d  ", i, idx_h[k * 1000 + i]);
-    }
+//     knn_cuda_texture_new(ref_h, n_refPoints, query_h, n_queryPoints, n_dimentions, k, dist_h, idx_h);
+
+//     printf("\n\ndistances after sort....\n");
+//     // for(int i=0; i< n_refPoints;i++){
+//     for (int i = 0; i < k; i++)
+//     {
+//         // printf("%d)%d  ", i,idx_h[n_refPoints * 0 +i]);
+//         printf("%d)%f  ", i, dist_h[k * 1000 + i]);
+//     }
+
+//     printf("\n\nindexes after sort....\n");
+//     // for(int i=0; i< n_refPoints;i++){
+//     for (int i = 0; i < k; i++)
+//     {
+//         // printf("%d)%d  ", i,idx_h[n_refPoints * 0 +i]);
+//         printf("%d)%d  ", i, idx_h[k * 1000 + i]);
+//     }
 
     
-    free(ref_h);
-    free(dist_h);
-    free(idx_h);
-    free(ref_row_maj_h);
-    free(query_row_maj_h);
+//     free(ref_h);
+//     free(dist_h);
+//     free(idx_h);
+//     free(ref_row_maj_h);
+//     free(query_row_maj_h);
 
-    return 0;
-}
+//     return 0;
+// }

@@ -205,12 +205,12 @@ bool knn_cuda_global(const float *ref_h,
     //remove after test
     error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
 
-     printf("\n\ndistances before sort\n");
-    for(int i = 0; i<n_refPoints ; i++){
+    //  printf("\n\ndistances before sort\n");
+    // for(int i = 0; i<n_refPoints ; i++){
 
-        printf("%d)%f  ", i,dist_h[0 + i]);
+    //     printf("%d)%f  ", i,dist_h[0 + i]);
 
-    }
+    // }
     //////////////////////////////////////////////////////////////////////////////////////
 
     grid_size_x = (n_refPoints / 2) / warpSize;
