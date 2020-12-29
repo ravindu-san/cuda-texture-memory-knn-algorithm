@@ -3,8 +3,9 @@
 
 #include "knn.cu"
 #include "knn-text.cu"
+#include "knn-text-old.cu"
 #include "utilities.h"
-// #include "knn-text-old.cu"
+
 
 
 void initialize_data(float * ref,
@@ -29,14 +30,13 @@ void initialize_data(float * ref,
 
 int main(){
 
-    clock_t knn_glob_start, knn_glob_end, knn_text_new_start, knn_text_new_end;
-    // clock_t knn_text_new_start = 0, knn_text_new_end = 0;
-    // clock_t knn_glob_start, knn_glob_end;
+    clock_t knn_glob_start, knn_glob_end, knn_text_new_start, knn_text_new_end, knn_text_old_start, knn_text_old_end;
     double glob_time = 0.0;
     double text_new_time = 0.0;
+    double text_old_time = 0.0;
 
-    // int n_refPoints = 8192*2*2*2*2;
-    int n_refPoints = 8192;
+    int n_refPoints = 8192*2*2*2*2;
+    // int n_refPoints = 8192;
     int n_queryPoints = 1024;
     int n_dimentions = 4;
     int k = 4;
@@ -79,6 +79,7 @@ int main(){
 
   
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//knn global
 
     knn_glob_start = clock();
     knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
@@ -102,6 +103,8 @@ int main(){
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //knn texture new
+
     knn_text_new_start = clock();
     knn_cuda_texture_new(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
     knn_text_new_end = clock();
@@ -121,6 +124,29 @@ int main(){
     }
 
     printf("\n\n Texture New Time:%f\n", text_new_time);
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //knn texture old
+
+    knn_text_old_start = clock();
+    knn_cuda_texture(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+    knn_text_old_end = clock();
+    
+    text_old_time = (double)(knn_text_old_end - knn_text_old_start) / CLOCKS_PER_SEC;
+
+    printf("\n\ndistances after sort...\n");
+    for (int i = 0; i < k; i++)
+    {
+        printf("%f  ", distances_h[i * n_queryPoints + 0]);
+    }
+
+    printf("\n\nindexes after sort...\n");
+    for (int i = 0; i < k; i++)
+    {
+        printf("%d  ", idx_h[i * n_queryPoints + 0]);
+    }
+
+    printf("\n\n Texture Old Time:%f\n", text_old_time);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     free(refPoints_h);
