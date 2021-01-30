@@ -35,11 +35,12 @@ int main(){
     double text_new_time = 0.0;
     double text_old_time = 0.0;
 
-    int n_refPoints = 8192*2*2*2*2;
+    // int n_refPoints = 8192*2*2*2*2;
     // int n_refPoints = 8192;
+    int n_refPoints = 100000;
     int n_queryPoints = 1024;
     int n_dimentions = 4;
-    int k = 4;
+    int k = 362;
 
     // char *refPointsFileName = "testData8192_4.csv";
     // char *queryPointsFileName = "queryPoints_4.csv";
@@ -81,29 +82,31 @@ int main(){
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //knn global
 
-    knn_glob_start = clock();
-    knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
-    knn_glob_end = clock();
+    // knn_glob_start = clock();
+    // knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+    // knn_glob_end = clock();
 
-    glob_time = (double)(knn_glob_end - knn_glob_start )/CLOCKS_PER_SEC;
+    // glob_time = (double)(knn_glob_end - knn_glob_start )/CLOCKS_PER_SEC;
 
 
-    printf("\n\ndistances after sort\n");
-    for(int i = 0; i<k ; i++){
+    // printf("\n\ndistances after sort\n");
+    // for(int i = 0; i<k ; i++){
 
-        printf("%f  ", distances_h[0 + i]);
-    }
+    //     printf("%f  ", distances_h[0 + i]);
+    // }
 
-    printf("\n\nindexes after sort\n");
-    for(int i = 0; i < k ; i++){
-        printf("%d  ", idx_h[0 + i]);
-    }
+    // printf("\n\nindexes after sort\n");
+    // for(int i = 0; i < k ; i++){
+    //     printf("%d  ", idx_h[0 + i]);
+    // }
 
-    printf("\n\n Global Time:%f\n", glob_time);
+    // printf("\n\n Global Time:%f\n", glob_time);
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //knn texture new
+
+    printf("(texture new)in....\n");
 
     knn_text_new_start = clock();
     knn_cuda_texture_new(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);

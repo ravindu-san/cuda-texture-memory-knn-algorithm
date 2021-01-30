@@ -1,11 +1,14 @@
 // #include <stdlib.h>
 #include <stdio.h>
 // #include "utilities.h"
+#include <cmath>
+const float infinity = INFINITY;
 
 //ToDo
 //kernel execution
 //copy distance values and check
 //remove cls_h and associated read functions
+
 
 __global__ void calc_dist_texture(cudaTextureObject_t queryP,
                                   int n_queryP,
@@ -13,10 +16,12 @@ __global__ void calc_dist_texture(cudaTextureObject_t queryP,
                                   int n_refP,
                                   int ref_pitch,
                                   int n_dim,
-                                  float *dist)
+                                  float *dist,
+                                  int dist_pitch)
 {
     unsigned int xIndex = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int yIndex = blockIdx.y * blockDim.y + threadIdx.y;
+
     if (xIndex < n_refP && yIndex < n_queryP)
     {
         float ssd = 0.f;
@@ -27,9 +32,60 @@ __global__ void calc_dist_texture(cudaTextureObject_t queryP,
             ssd += tmp * tmp;
         }
         // dist[yIndex * query_pitch + xIndex] = ssd;
-        dist[yIndex * ref_pitch + xIndex] = ssd;
+        // dist[yIndex * ref_pitch + xIndex] = ssd;
+        dist[yIndex * dist_pitch + xIndex] = ssd;
+
+    }else if(yIndex < n_queryP)
+    {
+        // dist[yIndex * ref_pitch + xIndex] = infinity;
+        dist[yIndex * dist_pitch + xIndex] = infinity;
     }
+    
 }
+
+
+
+
+// __global__ void calc_dist_texture(cudaTextureObject_t queryP,
+//                                   int n_queryP,
+//                                   float *refP,
+//                                   int n_refP,
+//                                   int ref_pitch,
+//                                   int n_dim,
+//                                   float *dist)
+// {
+//     unsigned int xIndex = blockIdx.x * blockDim.x + threadIdx.x;
+//     unsigned int yIndex = blockIdx.y * blockDim.y + threadIdx.y;
+//     unsigned int tIdx = threadIdx.x;
+//     unsigned int blockDimx = blockDim.x;
+
+//     __shared__ float sharedRef[64];
+
+//     if(yIndex % blockDim.y == 0){
+
+//         for (size_t i = 0; i < n_dim; i++)
+//         {
+//             sharedRef[i * blockDimx + tIdx] = refP[i * ref_pitch + xIndex];
+//         } 
+//     }
+//     __syncthreads();
+
+//     if (xIndex < n_refP && yIndex < n_queryP)
+//     {
+//         float ssd = 0.f;
+//         for (int i = 0; i < n_dim; i++)
+//         {
+//             // float tmp  = tex2D<float>(ref, (float)yIndex, (float)i) - query[i * query_pitch + xIndex];
+//             // float tmp = refP[i * ref_pitch + xIndex] - tex2D<float>(queryP, (float)yIndex, (float)i);
+//             float tmp = sharedRef[i * blockDimx + tIdx] - tex2D<float>(queryP, (float)yIndex, (float)i);
+//             ssd += tmp * tmp;
+//         }
+//         // dist[yIndex * query_pitch + xIndex] = ssd;
+//         dist[yIndex * ref_pitch + xIndex] = ssd;
+//     }
+// }
+
+
 
 __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, int dist_pitch, int n_queryP, const uint stage, const uint passOfStage)
 {
@@ -112,8 +168,41 @@ __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, in
 }
 
 
+unsigned int  getNearestIntOfPow2(int n){
+
+    if(!(n&(n-1))){//if n is already a power of 2
+        return n;
+    }else
+    {
+        int bitIndex = 0;//equal to log2
+        int shift = 0;
+        // int a[5] = {}
+
+        bitIndex = (n>0xFFFF) << 4;
+        n >>= bitIndex;
+
+        shift = (n>0xFF) << 3;
+        n >>= shift;
+        bitIndex |= shift;
+
+        shift = (n>0xF) << 2;
+        n >>= shift; 
+        bitIndex |= shift;
+
+        shift = (n>0x3) << 1;
+        n >>= shift; 
+        bitIndex |= shift;
+
+        bitIndex |= (n >> 1);
+
+        return 1 << (bitIndex+1);
+
+    }
+    
+}
+
 bool knn_cuda_texture_new(const float *ref_h,
-                      int n_refPoints,
+                      int n_refPoints_original,
                       const float *query_h,
                       int n_queryPoints,
                       int n_dimentions,
@@ -122,10 +211,16 @@ bool knn_cuda_texture_new(const float *ref_h,
                       int *idx_h)
 {
 
+    printf("\n(texture new)starting....\n");
+
     cudaError_t error;
     cudaDeviceProp prop;
     int n_devices;
     int warpSize = 32;
+
+    unsigned int n_refPoints = getNearestIntOfPow2(n_refPoints_original);
+
+    printf("\n(texture new)after getNearestPower....\n");
 
     error = cudaGetDeviceCount(&n_devices);
     if (error != cudaSuccess || n_devices == 0)
@@ -162,9 +257,13 @@ bool knn_cuda_texture_new(const float *ref_h,
     size_t dist_pitch_in_bytes;
     size_t idx_pitch_in_bytes;
 
-    error = cudaMallocPitch((void **)&ref_dev, &ref_pitch_in_bytes, n_refPoints * sizeof(float), n_dimentions);
+    printf("\n(texture new)before cudaMallocPitch");
+
+    error = cudaMallocPitch((void **)&ref_dev, &ref_pitch_in_bytes, n_refPoints_original * sizeof(float), n_dimentions);
     error = cudaMallocPitch((void **)&dist_dev, &dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints);
     error = cudaMallocPitch((void **)&idx_dev, &idx_pitch_in_bytes, n_refPoints * sizeof(int), n_queryPoints);
+
+    printf("\n(texture new)after cudaMallocPitch\n");
 
     if (error != cudaSuccess)
     {
@@ -183,8 +282,18 @@ bool knn_cuda_texture_new(const float *ref_h,
     size_t dist_pitch = dist_pitch_in_bytes / sizeof(float);
     size_t idx_pitch = idx_pitch_in_bytes / sizeof(int);
 
+    printf("\n(texture new)ref_pitch: %d\n", ref_pitch);
+    printf("\n(texture new)dist_pitch: %d\n", dist_pitch);
+    printf("\n(texture new)idx_pitch: %d\n", idx_pitch);
+    
+
+    printf("\n(texture new)before cudaMemcpy2D.....\n");
+
     //copy ref data from host to device (in column major)
-    error = cudaMemcpy2D(ref_dev, ref_pitch_in_bytes, ref_h, n_refPoints * sizeof(float), n_refPoints * sizeof(float), n_dimentions, cudaMemcpyHostToDevice);
+    // error = cudaMemcpy2D(ref_dev, ref_pitch_in_bytes, ref_h, n_refPoints * sizeof(float), n_refPoints * sizeof(float), n_dimentions, cudaMemcpyHostToDevice);
+    error = cudaMemcpy2D(ref_dev, ref_pitch_in_bytes, ref_h, n_refPoints_original * sizeof(float), n_refPoints_original * sizeof(float), n_dimentions, cudaMemcpyHostToDevice);
+
+    printf("\n(texture new)after cudaMemcpy2D.....\n");
 
     if (error != cudaSuccess)
     {
@@ -262,6 +371,8 @@ bool knn_cuda_texture_new(const float *ref_h,
         return false;
     }
 
+    printf("\n(texture new)before grid block sizes...\n");
+
     /////only considered >16
     int block_size_x = warpSize / 2;
     int block_size_y = warpSize / 2;
@@ -271,10 +382,14 @@ bool knn_cuda_texture_new(const float *ref_h,
     dim3 block_size = dim3(block_size_x, block_size_y);
     dim3 grid_size = dim3(grid_size_x, grid_size_y);
 
-    calc_dist_texture<<<grid_size, block_size>>>(query_tex_dev, n_queryPoints, ref_dev, n_refPoints, ref_pitch, n_dimentions, dist_dev);
+    printf("\n(texture new)start dist calc\n");
+
+    calc_dist_texture<<<grid_size, block_size>>>(query_tex_dev, n_queryPoints, ref_dev, n_refPoints_original, ref_pitch, n_dimentions, dist_dev, dist_pitch);
 
     // cudaDeviceSynchronize();
     cudaThreadSynchronize();
+
+    printf("\n(texture new)finished dist calc\n");
 
     error = cudaGetLastError();
 
@@ -294,7 +409,14 @@ bool knn_cuda_texture_new(const float *ref_h,
 
     //////////////////////////////////////////////////////////////////////////////////
 
-    error = cudaMemcpy2D(dist_h, n_refPoints * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+    printf("\n(texture new)before cudaMemcpy2D \n");
+
+    //remove after test.....
+    
+    // error = cudaMemcpy2D(dist_h, n_refPoints * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy2D(dist_h, n_refPoints_original * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints_original * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+
+    printf("\n(texture new)after cudaMemcpy2D \n");
 
     if (error != cudaSuccess)
     {
