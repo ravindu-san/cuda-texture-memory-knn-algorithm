@@ -1,7 +1,13 @@
 #include <stdlib.h>
 #include <time.h>
+#include <cmath>
+
+#ifndef UTILITIES.H
+#define UTILITIES.H
 
 #define MAX_SOURCE_SIZE (0x100000)
+
+const float infinity = INFINITY;
 
 typedef struct
 {
@@ -150,3 +156,39 @@ float *transpose(float* rowMajor1D, int n_rows, int n_cols){
 //         query[i] = 10. * (float)(rand() / (double)RAND_MAX);
 //     }
 // }
+
+
+unsigned int  getNearestIntOfPow2(int n){
+
+    if(!(n&(n-1))){//if n is already a power of 2
+        return n;
+    }else
+    {
+        int bitIndex = 0;//equal to log2
+        int shift = 0;
+        // int a[5] = {}
+
+        bitIndex = (n>0xFFFF) << 4;
+        n >>= bitIndex;
+
+        shift = (n>0xFF) << 3;
+        n >>= shift;
+        bitIndex |= shift;
+
+        shift = (n>0xF) << 2;
+        n >>= shift; 
+        bitIndex |= shift;
+
+        shift = (n>0x3) << 1;
+        n >>= shift; 
+        bitIndex |= shift;
+
+        bitIndex |= (n >> 1);
+
+        return 1 << (bitIndex+1);
+
+    }
+    
+}
+
+#endif

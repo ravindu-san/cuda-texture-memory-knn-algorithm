@@ -57,7 +57,8 @@ int main(){
     queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
     queryPoints_transpose_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
     idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
-    distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
+    // distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
+    distances_h = (float *)malloc(sizeof(float)* k *n_queryPoints);
 
  
 
@@ -82,25 +83,25 @@ int main(){
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //knn global
 
-    // knn_glob_start = clock();
-    // knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
-    // knn_glob_end = clock();
+    knn_glob_start = clock();
+    knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+    knn_glob_end = clock();
 
-    // glob_time = (double)(knn_glob_end - knn_glob_start )/CLOCKS_PER_SEC;
+    glob_time = (double)(knn_glob_end - knn_glob_start )/CLOCKS_PER_SEC;
 
 
-    // printf("\n\ndistances after sort\n");
-    // for(int i = 0; i<k ; i++){
+    printf("\n\ndistances after sort\n");
+    for(int i = 0; i<k ; i++){
 
-    //     printf("%f  ", distances_h[0 + i]);
-    // }
+        printf("%f  ", distances_h[0 + i]);
+    }
 
-    // printf("\n\nindexes after sort\n");
-    // for(int i = 0; i < k ; i++){
-    //     printf("%d  ", idx_h[0 + i]);
-    // }
+    printf("\n\nindexes after sort\n");
+    for(int i = 0; i < k ; i++){
+        printf("%d  ", idx_h[0 + i]);
+    }
 
-    // printf("\n\n Global Time:%f\n", glob_time);
+    printf("\n\n Global Time:%f\n", glob_time);
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,8 +1,8 @@
 // #include <stdlib.h>
 #include <stdio.h>
-// #include "utilities.h"
-#include <cmath>
-const float infinity = INFINITY;
+#include "utilities.h"
+// #include <cmath>
+// const float infinity = INFINITY;
 
 //ToDo
 //kernel execution
@@ -168,38 +168,38 @@ __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, in
 }
 
 
-unsigned int  getNearestIntOfPow2(int n){
+// unsigned int  getNearestIntOfPow2(int n){
 
-    if(!(n&(n-1))){//if n is already a power of 2
-        return n;
-    }else
-    {
-        int bitIndex = 0;//equal to log2
-        int shift = 0;
-        // int a[5] = {}
+//     if(!(n&(n-1))){//if n is already a power of 2
+//         return n;
+//     }else
+//     {
+//         int bitIndex = 0;//equal to log2
+//         int shift = 0;
+//         // int a[5] = {}
 
-        bitIndex = (n>0xFFFF) << 4;
-        n >>= bitIndex;
+//         bitIndex = (n>0xFFFF) << 4;
+//         n >>= bitIndex;
 
-        shift = (n>0xFF) << 3;
-        n >>= shift;
-        bitIndex |= shift;
+//         shift = (n>0xFF) << 3;
+//         n >>= shift;
+//         bitIndex |= shift;
 
-        shift = (n>0xF) << 2;
-        n >>= shift; 
-        bitIndex |= shift;
+//         shift = (n>0xF) << 2;
+//         n >>= shift; 
+//         bitIndex |= shift;
 
-        shift = (n>0x3) << 1;
-        n >>= shift; 
-        bitIndex |= shift;
+//         shift = (n>0x3) << 1;
+//         n >>= shift; 
+//         bitIndex |= shift;
 
-        bitIndex |= (n >> 1);
+//         bitIndex |= (n >> 1);
 
-        return 1 << (bitIndex+1);
+//         return 1 << (bitIndex+1);
 
-    }
+//     }
     
-}
+// }
 
 bool knn_cuda_texture_new(const float *ref_h,
                       int n_refPoints_original,
@@ -414,7 +414,7 @@ bool knn_cuda_texture_new(const float *ref_h,
     //remove after test.....
     
     // error = cudaMemcpy2D(dist_h, n_refPoints * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
-    error = cudaMemcpy2D(dist_h, n_refPoints_original * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints_original * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
+    // error = cudaMemcpy2D(dist_h, n_refPoints_original * sizeof(float), dist_dev, dist_pitch_in_bytes, n_refPoints_original * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
 
     printf("\n(texture new)after cudaMemcpy2D \n");
 

@@ -1,14 +1,16 @@
 //#include <stdlib.h>
 #include <stdio.h>
-// #include "utilities.h"
+#include "utilities.h"
+// #include <cmath>
+// const float infinity = INFINITY;
 
-__global__ void calc_dist_global_mem(float *refP, float *queryP, float *distances, int n_refP, int n_queryP, int n_dim)
+__global__ void calc_dist_global_mem(float *refP, float *queryP, float *distances, int n_refP_original, int n_refP, int n_queryP, int n_dim)
 {
 
     unsigned int xIndex = blockIdx.x * blockDim.x + threadIdx.x; //ref points vary across x axis of grid
     unsigned int yIndex = blockIdx.y * blockDim.y + threadIdx.y; //query points vary across y axis of grid
 
-    if(xIndex < n_refP && yIndex < n_queryP){
+    if(xIndex < n_refP_original && yIndex < n_queryP){
 
         float sqrd_dist;
 
@@ -21,10 +23,14 @@ __global__ void calc_dist_global_mem(float *refP, float *queryP, float *distance
 
         distances[yIndex * n_refP + xIndex] = sqrd_dist;
 
-        if(xIndex == 0 && yIndex == 1023){
-            printf("distance of ref %d q %d : %f\n", xIndex, yIndex,sqrd_dist);
-        }
+        // if(xIndex == 0 && yIndex == 1023){
+        //     printf("distance of ref %d q %d : %f\n", xIndex, yIndex,sqrd_dist);
+        // }
 
+    }else if(yIndex < n_queryP)
+    {
+        // dist[yIndex * ref_pitch + xIndex] = infinity;
+        distances[yIndex * n_refP + xIndex] = infinity;
     }
     
 }
@@ -96,7 +102,7 @@ __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, in
 
 
 bool knn_cuda_global(const float *ref_h,
-                    int n_refPoints,
+                    int n_refPoints_original,
                     const float *query_h,
                     int n_queryPoints,
                     int n_dimentions,
@@ -110,6 +116,7 @@ bool knn_cuda_global(const float *ref_h,
     int n_devices;
     int warpSize = 32;
 
+    unsigned int n_refPoints = getNearestIntOfPow2(n_refPoints_original);
 
     error = cudaGetDeviceCount(&n_devices);
     if (error != cudaSuccess || n_devices == 0)
@@ -143,7 +150,8 @@ bool knn_cuda_global(const float *ref_h,
     float *distances_d;
 
 
-    error = cudaMalloc((void **)&refPoints_d, sizeof(float) * n_dimentions * n_refPoints);
+    // error = cudaMalloc((void **)&refPoints_d, sizeof(float) * n_dimentions * n_refPoints);
+    error = cudaMalloc((void **)&refPoints_d, sizeof(float) * n_dimentions * n_refPoints_original);
     error = cudaMalloc((void **)&queryPoints_d, sizeof(float) * n_dimentions * n_queryPoints);
     error = cudaMalloc((void **)&idx_dev, sizeof(int) * n_refPoints * n_queryPoints);
     error = cudaMalloc((void **)&distances_d, sizeof(float) * n_refPoints * n_queryPoints);
@@ -159,7 +167,8 @@ bool knn_cuda_global(const float *ref_h,
         cudaFree(idx_dev);
     }
 
-    error = cudaMemcpy(refPoints_d, ref_h, sizeof(float) * n_dimentions * n_refPoints, cudaMemcpyHostToDevice);
+    // error = cudaMemcpy(refPoints_d, ref_h, sizeof(float) * n_dimentions * n_refPoints, cudaMemcpyHostToDevice);
+    error = cudaMemcpy(refPoints_d, ref_h, sizeof(float) * n_dimentions * n_refPoints_original, cudaMemcpyHostToDevice);
     error = cudaMemcpy(queryPoints_d, query_h, sizeof(float) * n_dimentions * n_queryPoints, cudaMemcpyHostToDevice);
 
     if (error != cudaSuccess)
@@ -182,7 +191,7 @@ bool knn_cuda_global(const float *ref_h,
     dim3 grid_size = dim3(grid_size_x, grid_size_y);
 
 
-    calc_dist_global_mem<<<grid_size, block_size>>>(refPoints_d, queryPoints_d, distances_d, n_refPoints, n_queryPoints, n_dimentions);
+    calc_dist_global_mem<<<grid_size, block_size>>>(refPoints_d, queryPoints_d, distances_d, n_refPoints_original, n_refPoints, n_queryPoints, n_dimentions);
 
     cudaDeviceSynchronize();
     // cudaThreadSynchronize();
@@ -203,7 +212,7 @@ bool knn_cuda_global(const float *ref_h,
 
     /////////////////////////////////////////////////////////////////////////////////////
     //remove after test
-    error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+    // error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
 
     //  printf("\n\ndistances before sort\n");
     // for(int i = 0; i<n_refPoints ; i++){
@@ -256,7 +265,8 @@ bool knn_cuda_global(const float *ref_h,
     }
 
 
-    error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+    // error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
+    error = cudaMemcpy2D(dist_h, k * sizeof(float), distances_d, n_refPoints*sizeof(float), k * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
     error = cudaMemcpy2D(idx_h, k * sizeof(int), idx_dev, n_refPoints*sizeof(int), k * sizeof(int), n_queryPoints, cudaMemcpyDeviceToHost);
 
 
