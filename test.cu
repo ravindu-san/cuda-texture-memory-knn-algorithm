@@ -83,51 +83,55 @@ int main(){
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //knn global
 
-    knn_glob_start = clock();
-    knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
-    knn_glob_end = clock();
+    // knn_glob_start = clock();
+    // knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+    // knn_glob_end = clock();
 
-    glob_time = (double)(knn_glob_end - knn_glob_start )/CLOCKS_PER_SEC;
+    // glob_time = (double)(knn_glob_end - knn_glob_start )/CLOCKS_PER_SEC;
 
 
-    printf("\n\ndistances after sort\n");
-    for(int i = 0; i<k ; i++){
+    // printf("\n\ndistances after sort\n");
+    // for(int i = 0; i<k ; i++){
 
-        printf("%f  ", distances_h[0 + i]);
-    }
+    //     // printf("%f  ", distances_h[0 + i]);
+    //     printf("%f  ", distances_h[k + i]);
+    // }
 
-    printf("\n\nindexes after sort\n");
-    for(int i = 0; i < k ; i++){
-        printf("%d  ", idx_h[0 + i]);
-    }
+    // printf("\n\nindexes after sort\n");
+    // for(int i = 0; i < k ; i++){
+    //     // printf("%d  ", idx_h[0 + i]);
+    //     printf("%d  ", idx_h[k + i]);
+    // }
 
-    printf("\n\n Global Time:%f\n", glob_time);
+    // printf("\n\n Global Time:%f\n", glob_time);
 
 
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     //knn texture new
 
-    printf("(texture new)in....\n");
+    // printf("(texture new)in....\n");
 
-    knn_text_new_start = clock();
-    knn_cuda_texture_new(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
-    knn_text_new_end = clock();
+    // knn_text_new_start = clock();
+    // knn_cuda_texture_new(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+    // knn_text_new_end = clock();
 
-    text_new_time = (double)(knn_text_new_end - knn_text_new_start) / CLOCKS_PER_SEC;
+    // text_new_time = (double)(knn_text_new_end - knn_text_new_start) / CLOCKS_PER_SEC;
 
 
-    printf("\n\ndistances after sort\n");
-    for(int i = 0; i< k ; i++){
+    // printf("\n\ndistances after sort\n");
+    // for(int i = 0; i< k ; i++){
 
-        printf("%f  ", distances_h[0 + i]);
-    }
+    //     // printf("%f  ", distances_h[0 + i]);
+    //     printf("%f  ", distances_h[k + i]);
+    // }
 
-    printf("\n\nindexes after sort\n");
-    for(int i = 0; i < k ; i++){
-        printf("%d  ", idx_h[0 + i]);
-    }
+    // printf("\n\nindexes after sort\n");
+    // for(int i = 0; i < k ; i++){
+    //     // printf("%d  ", idx_h[0 + i]);
+    //     printf("%d  ", idx_h[k + i]);
+    // }
 
-    printf("\n\n Texture New Time:%f\n", text_new_time);
+    // printf("\n\n Texture New Time:%f\n", text_new_time);
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     //knn texture old
@@ -141,13 +145,15 @@ int main(){
     printf("\n\ndistances after sort...\n");
     for (int i = 0; i < k; i++)
     {
-        printf("%f  ", distances_h[i * n_queryPoints + 0]);
+        // printf("%f  ", distances_h[i * n_queryPoints + 0]);
+        printf("%f  ", distances_h[i * n_queryPoints + 1]);
     }
 
     printf("\n\nindexes after sort...\n");
     for (int i = 0; i < k; i++)
     {
-        printf("%d  ", idx_h[i * n_queryPoints + 0]);
+        // printf("%d  ", idx_h[i * n_queryPoints + 0]);
+        printf("%d  ", idx_h[i * n_queryPoints + 1]);
     }
 
     printf("\n\n Texture Old Time:%f\n", text_old_time);

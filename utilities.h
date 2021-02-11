@@ -2,8 +2,8 @@
 #include <time.h>
 #include <cmath>
 
-#ifndef UTILITIES.H
-#define UTILITIES.H
+#ifndef UTILITIES_H
+#define UTILITIES_H
 
 #define MAX_SOURCE_SIZE (0x100000)
 
