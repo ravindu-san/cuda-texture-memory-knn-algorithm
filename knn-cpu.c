@@ -4,6 +4,8 @@
 
 void calc_dist_cpu(float *refP, float *queryP, float *dist,int n_ref, int n_query, int n_dim){
 
+    // *dist = (float *)malloc(sizeof(float)*n_ref*n_query);
+
     for (int i = 0; i < n_query; i++)
     {
         for(int j = 0; j< n_ref; j++){
@@ -12,35 +14,18 @@ void calc_dist_cpu(float *refP, float *queryP, float *dist,int n_ref, int n_quer
             
             for(int k = 0; k<n_dim; k++){
 
-                float diff = refP[k + n_dim*n_ref] - queryP[k + n_dim*n_query];
+                // float diff = refP[k + n_dim*n_ref] - queryP[k + n_dim*n_query];
+                float diff = refP[k + n_dim*j] - queryP[k + n_dim*i]; //row major
                 distance += diff*diff; 
             }
 
+            // (*dist)[j + n_ref*i] = distance;
             dist[j + n_ref*i] = distance;
         }
     }
     
 }
 
-void sort_cpu(float **dist, int **idx, int n_refP, int n_queryP, int k){
-
-    *idx = (int *)malloc(sizeof(int)*n_refP*n_queryP);
-
-    printf("in sort..\n");
-    
-    for(int i=0; i<n_queryP; i++){
-        for(int j=0; j<n_refP; j++){
-            (*idx)[j+i*n_refP] = j;
-
-            // printf("idx init:%d", (*idx)[j+i*n_refP]);
-        }
-    }
-
-    for(int i=0; i<n_queryP; i++){
-       partialQuickSort(*dist, *idx, k, i*n_refP, i*n_refP + n_refP-1);
-    }
-    
-}
 
 int pivot(float *dist, int *idx, int pIdx, int start, int end){
 
@@ -92,96 +77,151 @@ void partialQuickSort(float *dist, int *idx, int k, int start, int end){
 }
 
 
+// void sort_cpu(float **dist, int **idx, int n_refP, int n_queryP, int k){
+void sort_cpu(float *dist, int *idx, int n_refP, int n_queryP, int k){
 
-int main()
-{
-    // cout<<"Hello World\n\n";
+    // *idx = (int *)malloc(sizeof(int)*n_refP*n_queryP);
     
-    int n_refP = 10;
-    int n_queryP = 2;
-    int k = 6;
-    
-    srand(time(NULL));
-    
-    float *distances = (float *)malloc(sizeof(float)*n_refP*n_queryP);
-    // int *indexes = (int *)malloc(sizeof(int)*n_refP*n_queryP);
-    int *indexes;
+    for(int i=0; i<n_queryP; i++){
+        for(int j=0; j<n_refP; j++){
+            // (*idx)[j+i*n_refP] = j;
+            idx[j+i*n_refP] = j;
 
+            // printf("idx init:%d", (*idx)[j+i*n_refP]);
+        }
+    }
 
-    
-    for (int i=0; i < n_queryP * n_refP; i++) {
-        
-        // distances[i] = 10.f*i;
-        distances[i] = rand()%1000;
-        // indexes[i] = i;
-        // indexes[i] = rand()%1000;
+    for(int i=0; i<n_queryP; i++){
+    //    partialQuickSort(*dist, *idx, k, i*n_refP, i*n_refP + n_refP-1);
+        partialQuickSort(dist, idx, k, i*n_refP, i*n_refP + n_refP-1);
     }
     
-    ////////////////////////////////////////////////////////////////////////////////
-    printf("\n\n before sort.....\n");
-
-     for(int i = 0; i<n_refP; i++){
-        
-        printf("%f  ", distances[i]);
-    }
-    
-    printf("\n\n");
-    
-    for(int i = 0; i<n_refP; i++){
-        
-        printf("%f  ", distances[i+ n_refP]);
-    }
-    
-    printf("\n");
-    
-    // for(int i = 0; i<n_refP; i++){
-        
-    //     printf("%d  ", indexes[i]);
-    // }
-    
-    
-    ///////////////////////////////////////////////////////////////////////////////
-    
-    
-    // partialQuickSort(distances, indexes, k, 0, n_refP-1);
-
-    sort_cpu(&distances, &indexes, n_refP, n_queryP, k);
-    
-    
-    // vector<int> dist(indexes, indexes+n_refP);
-    // partialQuicksort(dist, k, 0, n_refP);
-
-    ///////////////////////////////////////////////////////////////////////////////
-    printf("\n\n after sort.....\n");
-    
-    for(int i = 0; i<n_refP; i++){
-        
-        printf("%f  ", distances[i]);
-    }
-    
-    printf("\n");
-    for(int i = 0; i<n_refP; i++){
-        
-        printf("%d  ", indexes[i]);
-    }
-    
-    printf("\n");
-
-
-      for(int i = 0; i<n_refP; i++){
-        
-        printf("%f  ", distances[i+n_refP]);
-    }
-    
-    printf("\n");
-    for(int i = 0; i<n_refP; i++){
-        
-        printf("%d  ", indexes[i+n_refP]);
-    }
-    
-    printf("\n");
-        
-    return 0;
 }
+
+
+
+void knn_cpu
+    (float *refP,
+     float *queryP,
+     int n_ref, 
+     int n_query, 
+     int n_dim, 
+     int k, 
+     float *dist_k, 
+     int *idx_k)
+    {
+
+    float *dist = (float *)malloc(sizeof(float)*n_ref*n_query);
+    int *idx = (int *)malloc(sizeof(int)*n_ref*n_query);
+
+
+    calc_dist_cpu(refP, queryP, dist, n_ref, n_query, n_dim);
+
+    sort_cpu(dist, idx, n_ref, n_query, k);
+
+
+    for(int i = 0; i< n_query; i++){
+
+        // for(int j=0; j<)
+        memcpy(dist_k + i*k, dist + i*n_ref, sizeof(float)*k);
+        memcpy(idx_k + i*k, idx + i*n_ref, sizeof(int)*k);
+    }
+    
+    free(dist);
+    free(idx);
+
+}
+
+// int main()
+// {
+//     // cout<<"Hello World\n\n";
+    
+//     int n_refP = 10;
+//     int n_queryP = 2;
+//     int k = 6;
+    
+//     srand(time(NULL));
+    
+//     float *distances = (float *)malloc(sizeof(float)*n_refP*n_queryP);
+//     int *indexes = (int *)malloc(sizeof(int)*n_refP*n_queryP);
+//     // int *indexes;
+
+
+    
+//     for (int i=0; i < n_queryP * n_refP; i++) {
+        
+//         // distances[i] = 10.f*i;
+//         distances[i] = rand()%1000;
+//         // indexes[i] = i;
+//         // indexes[i] = rand()%1000;
+//     }
+    
+//     ////////////////////////////////////////////////////////////////////////////////
+//     printf("\n\n before sort.....\n");
+
+//      for(int i = 0; i<n_refP; i++){
+        
+//         printf("%f  ", distances[i]);
+//     }
+    
+//     printf("\n\n");
+    
+//     for(int i = 0; i<n_refP; i++){
+        
+//         printf("%f  ", distances[i+ n_refP]);
+//     }
+    
+//     printf("\n");
+    
+//     // for(int i = 0; i<n_refP; i++){
+        
+//     //     printf("%d  ", indexes[i]);
+//     // }
+    
+    
+//     ///////////////////////////////////////////////////////////////////////////////
+    
+    
+//     // partialQuickSort(distances, indexes, k, 0, n_refP-1);
+
+//     // sort_cpu(&distances, &indexes, n_refP, n_queryP, k);
+//     sort_cpu(distances, indexes, n_refP, n_queryP, k);
+    
+    
+//     // vector<int> dist(indexes, indexes+n_refP);
+//     // partialQuicksort(dist, k, 0, n_refP);
+
+//     ///////////////////////////////////////////////////////////////////////////////
+//     printf("\n\n after sort.....\n");
+    
+//     for(int i = 0; i<n_refP; i++){
+        
+//         printf("%f  ", distances[i]);
+//     }
+    
+//     printf("\n");
+//     for(int i = 0; i<n_refP; i++){
+        
+//         printf("%d  ", indexes[i]);
+//     }
+    
+//     printf("\n");
+
+
+//       for(int i = 0; i<n_refP; i++){
+        
+//         printf("%f  ", distances[i+n_refP]);
+//     }
+    
+//     printf("\n");
+//     for(int i = 0; i<n_refP; i++){
+        
+//         printf("%d  ", indexes[i+n_refP]);
+//     }
+    
+//     printf("\n");
+        
+//     return 0;
+// }
 
 

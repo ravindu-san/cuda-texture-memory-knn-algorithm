@@ -211,8 +211,6 @@ bool knn_cuda_texture_new(const float *ref_h,
                       int *idx_h)
 {
 
-    printf("\n(texture new)starting....\n");
-
     cudaError_t error;
     cudaDeviceProp prop;
     int n_devices;
