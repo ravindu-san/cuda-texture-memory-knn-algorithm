@@ -17,28 +17,23 @@ __global__ void calc_dist_global_mem(float *refP, float *queryP, float *distance
         for (int i = 0; i < n_dim; i++)
         {
 
-            float diff = refP[xIndex * n_dim + i] - queryP[yIndex * n_dim + i];//ref points & query points are in row major order
+            float diff = refP[xIndex * n_dim + i] - queryP[yIndex * n_dim + i];
             sqrd_dist += diff * diff;
         }
 
         distances[yIndex * n_refP + xIndex] = sqrd_dist;
 
-        // if(xIndex == 0 && yIndex == 1023){
-        //     printf("distance of ref %d q %d : %f\n", xIndex, yIndex,sqrd_dist);
-        // }
-
     }else if(yIndex < n_queryP)
     {
-        // dist[yIndex * ref_pitch + xIndex] = infinity;
         distances[yIndex * n_refP + xIndex] = infinity;
     }
     
 }
 
-// __global__ void sort_dist_bitonic(float *distances, int *clases, int n_refP, int n_queryP,const uint stage, const uint passOfStage){
+
+
 __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, int n_queryP,const uint stage, const uint passOfStage){
 
-    // uint threadId = get_global_id(0);
     unsigned int xIndex = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned int yIndex = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -80,14 +75,11 @@ __global__ void sort_dist_bitonic(float *distances, int *indexes, int n_refP, in
     
         compareResult = (leftElement < rightElement);
     
-    /////////////////////////////////////////////////////////////////////////////    
-        /*add these to a single if else block*/
         greater = compareResult ? rightElement : leftElement;
         greater_idx = compareResult ? right_idx : left_idx;
 
         lesser = compareResult ? leftElement : rightElement;
         lesser_idx = compareResult ? left_idx : right_idx;
-    //////////////////////////////////////////////////////////////////////////////
 
         distances[yIndex * n_refP + leftId] = lesser;
         distances[yIndex * n_refP +rightId] = greater;
@@ -138,7 +130,6 @@ bool knn_cuda_global(const float *ref_h,
     if (error != cudaSuccess)
     {
         printf("Error: %s\n", cudaGetErrorString(error));
-        // exit(-1);
         return false;
     }
 
@@ -149,8 +140,6 @@ bool knn_cuda_global(const float *ref_h,
     float *queryPoints_d;
     float *distances_d;
 
-
-    // error = cudaMalloc((void **)&refPoints_d, sizeof(float) * n_dimentions * n_refPoints);
     error = cudaMalloc((void **)&refPoints_d, sizeof(float) * n_dimentions * n_refPoints_original);
     error = cudaMalloc((void **)&queryPoints_d, sizeof(float) * n_dimentions * n_queryPoints);
     error = cudaMalloc((void **)&idx_dev, sizeof(int) * n_refPoints * n_queryPoints);
@@ -160,21 +149,18 @@ bool knn_cuda_global(const float *ref_h,
     if (error != cudaSuccess)
     {
         printf("(global) Error in cudaMalloc: %s\n", cudaGetErrorString(error));
-        // exit(-1);
         cudaFree(refPoints_d);
         cudaFree(queryPoints_d);
         cudaFree(distances_d);
         cudaFree(idx_dev);
     }
 
-    // error = cudaMemcpy(refPoints_d, ref_h, sizeof(float) * n_dimentions * n_refPoints, cudaMemcpyHostToDevice);
     error = cudaMemcpy(refPoints_d, ref_h, sizeof(float) * n_dimentions * n_refPoints_original, cudaMemcpyHostToDevice);
     error = cudaMemcpy(queryPoints_d, query_h, sizeof(float) * n_dimentions * n_queryPoints, cudaMemcpyHostToDevice);
 
     if (error != cudaSuccess)
     {
         printf("(global) Error in cudaMemcpy: %s\n", cudaGetErrorString(error));
-        // exit(-1);
         cudaFree(refPoints_d);
         cudaFree(queryPoints_d);
         cudaFree(distances_d);
@@ -201,31 +187,17 @@ bool knn_cuda_global(const float *ref_h,
     if (error != cudaSuccess)
 
     {
-        // printf("error in kernel\n");
         printf("(global) Error in calc_dist_global_mem: %s\n", cudaGetErrorString(error));
-        // exit(-1);
         cudaFree(refPoints_d);
         cudaFree(queryPoints_d);
         cudaFree(distances_d);
         cudaFree(idx_dev);
     }
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    //remove after test
-    // error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
-
-    //  printf("\n\ndistances before sort\n");
-    // for(int i = 0; i<n_refPoints ; i++){
-
-    //     printf("%d)%f  ", i,dist_h[0 + i]);
-
-    // }
-    //////////////////////////////////////////////////////////////////////////////////////
 
     grid_size_x = (n_refPoints / 2) / warpSize;
     grid_size_y = n_queryPoints / warpSize;
 
-    // block_size = dim3(warpSize, warpSize);
     block_size = dim3(warpSize, warpSize);
     grid_size = dim3(grid_size_x, grid_size_y);
 
@@ -253,9 +225,7 @@ bool knn_cuda_global(const float *ref_h,
     if (error != cudaSuccess)
 
     {
-         // printf("error in sort kernel\n");
          printf("(global) Error in sort_dist_bitonic kernel: %s\n", cudaGetErrorString(error));
-         // exit(-1);
          cudaFree(refPoints_d);
          cudaFree(queryPoints_d);
          cudaFree(distances_d);
@@ -264,8 +234,6 @@ bool knn_cuda_global(const float *ref_h,
          return false;
     }
 
-
-    // error = cudaMemcpy(dist_h, distances_d, sizeof(float) * n_refPoints * n_queryPoints, cudaMemcpyDeviceToHost);
     error = cudaMemcpy2D(dist_h, k * sizeof(float), distances_d, n_refPoints*sizeof(float), k * sizeof(float), n_queryPoints, cudaMemcpyDeviceToHost);
     error = cudaMemcpy2D(idx_h, k * sizeof(int), idx_dev, n_refPoints*sizeof(int), k * sizeof(int), n_queryPoints, cudaMemcpyDeviceToHost);
 
@@ -273,9 +241,7 @@ bool knn_cuda_global(const float *ref_h,
     if (error != cudaSuccess)
 
     {
-         // printf("error in sort kernel\n");
          printf("(global) Error in cudaMemcpy or cudaMemcpy2D: %s\n", cudaGetErrorString(error));
-         // exit(-1);
          cudaFree(refPoints_d);
          cudaFree(queryPoints_d);
          cudaFree(distances_d);
@@ -293,76 +259,3 @@ bool knn_cuda_global(const float *ref_h,
 
 
 }
-
-
-
-// int main()
-// {
-
-//     int n_refPoints = 8192;
-//     int n_queryPoints = 1024;
-//     // int n_refPoints = 32;
-//     // int n_queryPoints = 2;
-//     int n_dimentions = 4;
-//     int k = 4;
-
-//     float *refPoints_h;
-//     int *idx_h;
-//     float *queryPoints_h;
-
-//     float *distances_h;//distances_h not needed..only for test
-
-//     refPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_refPoints);
-//     // idx_h = (int *) malloc(sizeof(int) * n_refPoints * n_queryPoints);
-//     idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
-//     queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
-
-//     distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
-
-//     char *refPointsFileName = "testData8192_4.csv";
-//     char *queryPointsFileName = "queryPoints_4.csv";
-//     //  char *refPointsFileName = "testData32_4.csv";
-//     // char *queryPointsFileName = "queryPoints1_4.csv";
-
-//     readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
-
-    
-
-//     // for (int i = 0; i < noOfRefPoints; i++)
-//     for (int i = 0; i < 5; i++)
-//     {
-//         printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
-//     }
-
-    
-    
-//     readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
- 
-
-//     knn_cuda_global(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
-
-    
-//     printf("\n\ndistances after sort\n");
-//     for(int i = 0; i<n_refPoints ; i++){
-
-//         // printf("%f  ", distances_h[n_refPoints + i]);
-//         printf("%f  ", distances_h[0 + i]);
-
-
-//     }
-
-//     printf("\n\nindexes after sort\n");
-//     for(int i = 0; i < k ; i++){
-//         // printf("%d  ", idx_h[n_refPoints + i]);
-//         // printf("%d  ", idx_h[k + i]);
-//         printf("%d  ", idx_h[0 + i]);
-
-//     }
-
-//     free(refPoints_h);
-//     free(queryPoints_h);
-//     free(distances_h);//not need if distances are not get back to host
-//     free(idx_h);
-
-//     return 0;
-// }

@@ -3,7 +3,7 @@
 
 #include "knn.cu"
 #include "knn-text.cu"
-#include "knn-text-old.cu"
+// #include "knn-text-old.cu"
 #include "knn-cpu.c"
 #include "utilities.h"
 
@@ -31,13 +31,11 @@ void initialize_data(float * ref,
 
 int main(int argc, char **argv){
 
-     // int n_refPoints = 8192*2*2*2*2;
-    // int n_refPoints = 8192;
+    //default test values
     int n_refPoints = 100000;
     int n_queryPoints = 1024;
     int n_dimentions = 10;
     int k = 362;
-    // int k = 10;
 
     bool execCpu = 0;
     bool execGlobal = 0;
@@ -89,13 +87,6 @@ int main(int argc, char **argv){
     double text_old_time = 0.0;
     double cpu_time = 0.0;
 
-    // // int n_refPoints = 8192*2*2*2*2;
-    // // int n_refPoints = 8192;
-    // int n_refPoints = 100000;
-    // int n_queryPoints = 1024;
-    // int n_dimentions = 10;
-    // int k = 362;
-    // // int k = 10;
 
     // char *refPointsFileName = "testData8192_4.csv";
     // char *queryPointsFileName = "queryPoints_4.csv";
@@ -112,27 +103,16 @@ int main(int argc, char **argv){
     queryPoints_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
     queryPoints_transpose_h = (float *)malloc(sizeof(float) * n_dimentions * n_queryPoints);
     idx_h = (int *) malloc(sizeof(int) * k * n_queryPoints);
-    // distances_h = (float *)malloc(sizeof(float)*n_refPoints*n_queryPoints);
     distances_h = (float *)malloc(sizeof(float)* k *n_queryPoints);
 
  
 
    initialize_data(refPoints_h, n_refPoints, queryPoints_h, n_queryPoints, n_dimentions);
     // readRefPoints(refPointsFileName, refPoints_h, n_refPoints, n_queryPoints, n_dimentions);
-    // for (int i = 0; i < noOfRefPoints; i++)
-    // for (int i = 0; i < 5; i++)
-    // {
-    //     printf("%d  %f  %f  %f  %f \n", i, refPoints_h[i*n_dimentions + 0], refPoints_h[i*n_dimentions + 1], refPoints_h[i*n_dimentions + 2], refPoints_h[i*n_dimentions + 3]);
-    // }
     // readQueryPoints(queryPointsFileName, queryPoints_h, n_dimentions);
 
    refPoints_transpose_h = transpose(refPoints_h , n_refPoints, n_dimentions);
    queryPoints_transpose_h = transpose(queryPoints_h , n_queryPoints, n_dimentions);
-
-//    for (size_t i = 0; i < n_refPoints* n_dimentions; i++)
-//    {
-    //    printf("%d    %f\n", i, refPoints_h[i]);
-//    }
 
   
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -153,14 +133,14 @@ int main(int argc, char **argv){
         printf("\n\ndistances after sort\n");
         for(int i = 0; i<k ; i++){
 
-            // printf("%f  ", distances_h[0 + i]);
-            printf("%f  ", distances_h[k + i]);
+            printf("%f  ", distances_h[0 + i]);
+            //printf("%f  ", distances_h[k + i]);
         }
 
         printf("\n\nindexes after sort\n");
         for(int i = 0; i < k ; i++){
-            // printf("%d  ", idx_h[0 + i]);
-            printf("%d  ", idx_h[k + i]);
+            printf("%d  ", idx_h[0 + i]);
+            //printf("%d  ", idx_h[k + i]);
         }
 
         printf("\n\n Global Time:%f\n", glob_time);
@@ -187,14 +167,14 @@ int main(int argc, char **argv){
         printf("\n\ndistances after sort\n");
         for(int i = 0; i< k ; i++){
 
-            // printf("%f  ", distances_h[0 + i]);
-            printf("%f  ", distances_h[k + i]);
+            printf("%f  ", distances_h[0 + i]);
+            //printf("%f  ", distances_h[k + i]);
         }
 
         printf("\n\nindexes after sort\n");
         for(int i = 0; i < k ; i++){
-            // printf("%d  ", idx_h[0 + i]);
-            printf("%d  ", idx_h[k + i]);
+            printf("%d  ", idx_h[0 + i]);
+            //printf("%d  ", idx_h[k + i]);
         }
 
         printf("\n\n Texture New Time:%f\n", text_new_time);
@@ -208,41 +188,41 @@ int main(int argc, char **argv){
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     //knn texture old
 
-    if(execTextOld){
+    // if(execTextOld){
 
-        printf("\n-----Knn Texture Memory (Old Implementation)-----\n");
+    //     printf("\n-----Knn Texture Memory (Old Implementation)-----\n");
 
-        knn_text_old_start = clock();
-        bool noErrorInTextOld = knn_cuda_texture(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
-        knn_text_old_end = clock();
+    //     knn_text_old_start = clock();
+    //     bool noErrorInTextOld = knn_cuda_texture(refPoints_transpose_h, n_refPoints, queryPoints_transpose_h, n_queryPoints, n_dimentions, k, distances_h, idx_h);
+    //     knn_text_old_end = clock();
 
-        if(noErrorInTextOld){
+    //     if(noErrorInTextOld){
 
-            text_old_time = (double)(knn_text_old_end - knn_text_old_start) / CLOCKS_PER_SEC;
+    //         text_old_time = (double)(knn_text_old_end - knn_text_old_start) / CLOCKS_PER_SEC;
 
-            printf("\n\ndistances after sort...\n");
-            for (int i = 0; i < k; i++)
-            {
-                // printf("%f  ", distances_h[i * n_queryPoints + 0]);
-                printf("%f  ", distances_h[i * n_queryPoints + 1]);
-            }
+    //         printf("\n\ndistances after sort...\n");
+    //         for (int i = 0; i < k; i++)
+    //         {
+    //             printf("%f  ", distances_h[i * n_queryPoints + 0]);
+    //             //printf("%f  ", distances_h[i * n_queryPoints + 1]);
+    //         }
     
-            printf("\n\nindexes after sort...\n");
-            for (int i = 0; i < k; i++)
-            {
-                // printf("%d  ", idx_h[i * n_queryPoints + 0]);
-                printf("%d  ", idx_h[i * n_queryPoints + 1]);
-            }
+    //         printf("\n\nindexes after sort...\n");
+    //         for (int i = 0; i < k; i++)
+    //         {
+    //             printf("%d  ", idx_h[i * n_queryPoints + 0]);
+    //             //printf("%d  ", idx_h[i * n_queryPoints + 1]);
+    //         }
     
-            printf("\n\n Texture Old Time:%f\n", text_old_time);
+    //         printf("\n\n Texture Old Time:%f\n", text_old_time);
 
-        }
+    //     }
 
        
 
-        printf("\n-----------------------------------------------------\n");
+    //     printf("\n-----------------------------------------------------\n");
 
-    }
+    // }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
     //knn-cpu
@@ -261,14 +241,14 @@ int main(int argc, char **argv){
         printf("\n\ndistances after sort\n");
         for(int i = 0; i< k ; i++){
 
-            // printf("%f  ", distances_h[0 + i]);
-            printf("%f  ", distances_h[k + i]);
+            printf("%f  ", distances_h[0 + i]);
+            //printf("%f  ", distances_h[k + i]);
         }
 
         printf("\n\nindexes after sort\n");
         for(int i = 0; i < k ; i++){
-            // printf("%d  ", idx_h[0 + i]);
-            printf("%d  ", idx_h[k + i]);
+            printf("%d  ", idx_h[0 + i]);
+            //printf("%d  ", idx_h[k + i]);
         }
 
         printf("\n\n CPU Time:%f\n", cpu_time);
